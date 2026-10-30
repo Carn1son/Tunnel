@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Tunnel for Windows: a small WebView2 window around the Tunnel page, a tray icon and the bridge to the TunnelVPN service.
+       One exe: the page, the WebView2 libraries and the icons are inside; .NET Framework 4.8 and WebView2 come with Windows 10/11. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <PlatformTarget>x64</PlatformTarget>
+    <LangVersion>7.3</LangVersion>
+    <AssemblyName>Tunnel</AssemblyName>
+    <RootNamespace>Tunnel</RootNamespace>
+    <ApplicationIcon>icon.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <Product>Tunnel</Product>
+    <Company>carnison</Company>
+    <Copyright>carnison</Copyright>
+    <Version>$(TnFileVersion)</Version>
+    <Version Condition="'$(TnFileVersion)' == ''">1.0.0</Version>
+    <DebugType>none</DebugType>
+    <Optimize>true</Optimize>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" GeneratePathProperty="true" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Security" />
+    <Reference Include="System.Web.Extensions" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="build.txt" LogicalName="build.txt" />
+    <EmbeddedResource Include="..\ui\index.html" LogicalName="index.html" />
+    <EmbeddedResource Include="tray_on.ico" LogicalName="tray_on.ico" />
+    <EmbeddedResource Include="tray_off.ico" LogicalName="tray_off.ico" />
+    <EmbeddedResource Include="$(PkgMicrosoft_Web_WebView2)\lib\net462\Microsoft.Web.WebView2.Core.dll" LogicalName="Microsoft.Web.WebView2.Core.dll" />
+    <EmbeddedResource Include="$(PkgMicrosoft_Web_WebView2)\lib\net462\Microsoft.Web.WebView2.WinForms.dll" LogicalName="Microsoft.Web.WebView2.WinForms.dll" />
+    <EmbeddedResource Include="$(PkgMicrosoft_Web_WebView2)\runtimes\win-x64\native\WebView2Loader.dll" LogicalName="WebView2Loader.dll" />
+  </ItemGroup>
+</Project>

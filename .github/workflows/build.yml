@@ -1,0 +1,163 @@
+name: Build Tunnel
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  meta:
+    name: Build number
+    runs-on: ubuntu-latest
+    outputs:
+      ver: ${{ steps.v.outputs.ver }}
+      label: ${{ steps.v.outputs.label }}
+      day: ${{ steps.v.outputs.day }}
+      file: ${{ steps.v.outputs.file }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        run: |
+          # VERSION holds major.minor; people see V1.0, V1.01 … V1.10; the app compares 2100.<major+1>.<minor>
+          IFS=. read -r MA MI < VERSION
+          MI=$((10#$MI))
+          echo "ver=2100.$((MA + 1)).$MI" >> "$GITHUB_OUTPUT"
+          echo "file=$MA.$MI.0" >> "$GITHUB_OUTPUT"
+          if [ "$MI" -eq 0 ]; then echo "label=V$MA.0" >> "$GITHUB_OUTPUT"; else echo "label=V$MA.$(printf %02d $MI)" >> "$GITHUB_OUTPUT"; fi
+          echo "day=$(TZ=Europe/Moscow date +%d.%m.%Y)" >> "$GITHUB_OUTPUT"
+
+  core:
+    name: TrustTunnel engine (with split tunnelling)
+    runs-on: windows-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache key
+        id: key
+        shell: bash
+        run: echo "k=core-$(cat core/REVISION)-${{ hashFiles('core/*.py', 'core/*.cpp', 'core/*.h', 'core/build.ps1') }}" >> "$GITHUB_OUTPUT"
+      - name: Built engine from an earlier run
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: core/out
+          key: ${{ steps.key.outputs.k }}
+      - name: Conan packages from an earlier run
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/.conan2/p
+          key: conan-${{ hashFiles('core/REVISION') }}
+          restore-keys: conan-
+      - uses: actions/setup-python@v5
+        if: steps.cache.outputs.cache-hit != 'true'
+        with:
+          python-version: '3.13'
+      - name: Tools
+        if: steps.cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          pip install --quiet "conan>=2.0.5,<3"
+          conan profile detect --force
+          choco install nasm ninja -y --no-progress | Out-Null
+          "C:\Program Files\NASM" | Out-File -FilePath $env:GITHUB_PATH -Append
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: steps.cache.outputs.cache-hit != 'true'
+        with:
+          arch: x64
+      - name: Build
+        if: steps.cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: ./core/build.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: engine
+          path: core/out/*
+
+  exe:
+    name: Tunnel.exe (WebView2)
+    needs: meta
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build info
+        shell: bash
+        run: printf 'version=%s\nlabel=%s\nday=%s\n' "${{ needs.meta.outputs.ver }}" "${{ needs.meta.outputs.label }}" "${{ needs.meta.outputs.day }}" > desktop/build.txt
+      - name: Build
+        shell: bash
+        run: |
+          if ! dotnet build desktop/Tunnel.csproj -c Release -nologo -p:TnFileVersion=${{ needs.meta.outputs.file }} > build.log 2>&1; then
+            grep -iE "error" build.log | sort -u | head -30 | while IFS= read -r l; do echo "::error::$l"; done; tail -5 build.log; exit 1
+          fi
+          mkdir -p dist && cp "$(find desktop/bin -name Tunnel.exe | head -1)" dist/
+          ls -la dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: exe
+          path: dist/Tunnel.exe
+
+  installer:
+    name: Installer
+    needs: [meta, core, exe]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: engine
+          path: bin
+      - uses: actions/download-artifact@v4
+        with:
+          name: exe
+          path: bin
+      - name: makensis
+        shell: bash
+        run: |
+          MN=$(command -v makensis || true); [ -z "$MN" ] && MN="/c/Program Files (x86)/NSIS/makensis.exe"
+          [ -f "$MN" ] || command -v makensis > /dev/null || choco install nsis -y --no-progress > /dev/null
+          ls -la bin
+          cd desktop
+          if ! "$MN" -V2 -DVERSION=${{ needs.meta.outputs.ver }} -DOUTFILE=Tunnel-Setup.exe -DBIN=../bin installer.nsi > nsis.log 2>&1; then
+            tail -25 nsis.log | while IFS= read -r l; do echo "::error::$l"; done; exit 1
+          fi
+          mkdir -p ../dist && mv Tunnel-Setup.exe ../dist/
+          echo "::notice::$(ls -la ../dist | tr '\n' ' ')"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Tunnel-windows
+          path: dist/Tunnel-Setup.exe
+
+  release:
+    name: Release (download link, updates)
+    needs: [meta, installer]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Tunnel-windows
+          path: dl
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VER: ${{ needs.meta.outputs.ver }}
+          LABEL: ${{ needs.meta.outputs.label }}
+          DAY: ${{ needs.meta.outputs.day }}
+        run: |
+          set -e
+          BASE="https://github.com/$GITHUB_REPOSITORY/releases/latest/download"
+          printf '%s\n' "Tunnel $LABEL от $DAY." "" "Windows, установщик: $BASE/Tunnel-Setup.exe" "" "Приложение само проверяет обновления: Настройки → Обновления." > notes.md
+          gh release delete "v$VER" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag 2>/dev/null || true
+          gh release create "v$VER" dl/Tunnel-Setup.exe --repo "$GITHUB_REPOSITORY" --title "Tunnel $LABEL — $DAY" --notes-file notes.md --latest
+      - name: Keep only the newest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VER: ${{ needs.meta.outputs.ver }}
+        run: |
+          gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName --jq '.[].tagName' | while read -r tag; do
+            [ "$tag" = "v$VER" ] || gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
+          done

@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="ru" data-ui="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tunnel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600&display=swap">
+<style>
+/* Tunnel — UI prototype. Layout: top bar, vertical tab rail on the left, content on the right; settings open over the tabs. */
+:root {
+  color-scheme: dark;
+  --bg: #0a0a0a; --panel: #121212; --panel2: #1a1a1a; --fg: #ececec; --muted: #8c8c8c; --line: #272727;
+  --accent: #3b82f6; --accent-fg: #ffffff; --ok: #3b82f6; --warn: #f0b155; --err: #ef5350; --off: #6b7280;
+  --f-display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+html[data-ui=light] { color-scheme: light; --bg: #ebebeb; --panel: #ffffff; --panel2: #f3f3f3; --fg: #141414; --muted: #5f5f5f; --line: #d4d4d4; --accent: #2563eb; --ok: #2563eb; --warn: #9a5b00; --err: #c62828; }
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 13px; line-height: 1.4; overflow: hidden; }
+.app { height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+
+/* top bar */
+.top { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.brand { display: inline-flex; align-items: center; gap: 8px; font-family: var(--f-display); font-size: 16px; letter-spacing: .06em; }
+.brand svg { width: 26px; height: 26px; }
+.status { display: inline-flex; align-items: center; gap: 7px; font-family: var(--f-mono); font-size: 12px; color: var(--muted); padding: 4px 10px; border: 1px solid var(--line); border-radius: 20px; margin-left: 6px; }
+.status i { width: 8px; height: 8px; border-radius: 50%; background: var(--off); }
+.status.on { color: var(--fg); border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); }
+.status.on i { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+.status.wait i { background: var(--warn); animation: blink 1s infinite; }
+@keyframes blink { 50% { opacity: .25; } }
+.grow { flex: 1; }
+.iconbtn { width: 34px; height: 32px; padding: 0; border: 0; background: none; color: var(--fg); cursor: pointer; display: inline-grid; place-items: center; border-radius: 6px; }
+.iconbtn svg { width: 20px; height: 20px; }
+.iconbtn:hover { color: color-mix(in srgb, var(--accent) 70%, var(--fg)); }
+.iconbtn[aria-pressed=true] { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* main */
+.main { display: grid; grid-template-columns: 210px minmax(0, 1fr); min-height: 0; }
+.rail { border-right: 1px solid var(--line); background: var(--panel); padding: 10px 8px; display: flex; flex-direction: column; gap: 3px; }
+.tab { font: inherit; text-align: left; display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; border: 1px solid transparent; background: none; color: var(--muted); cursor: pointer; }
+.tab svg { width: 18px; height: 18px; flex: none; }
+.tab:hover { color: var(--fg); }
+.tab[aria-selected=true] { border-color: var(--line); background: var(--panel2); color: var(--fg); }
+.tab[aria-selected=true] svg { color: var(--accent); }
+.rail .ver { margin-top: auto; padding: 8px 10px; font-family: var(--f-mono); font-size: 11px; color: var(--muted); }
+.view { overflow: auto; padding: 16px 18px 24px; min-width: 0; }
+.view > .inner { max-width: 980px; display: grid; gap: 14px; }
+
+/* common */
+h2 { font-family: var(--f-display); font-size: 20px; margin: 0; letter-spacing: .02em; }
+.head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.head p { margin: 0; color: var(--muted); flex-basis: 100%; }
+.box { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; display: grid; gap: 10px; min-width: 0; }
+.eyebrow { font-size: 10.5px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); font-weight: 600; }
+.btn { font: inherit; font-weight: 500; padding: 6px 12px; border-radius: 5px; border: 1px solid var(--line); background: var(--panel2); color: var(--fg); cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+.btn svg { width: 15px; height: 15px; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.btn.danger { color: var(--err); }
+.btn.sm { padding: 4px 9px; font-size: 12px; }
+.btn:hover { filter: brightness(1.12); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.seg { display: inline-flex; justify-self: start; width: max-content; max-width: 100%; border: 1px solid var(--line); border-radius: 5px; overflow: hidden; }
+.seg button { font: inherit; padding: 5px 12px; border: 0; background: var(--panel2); color: var(--fg); cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed=true] { background: var(--accent); color: var(--accent-fg); }
+input[type=text], input[type=password], input[type=search], select, textarea { font: inherit; padding: 7px 9px; border: 1px solid var(--line); border-radius: 5px; background: var(--bg); color: var(--fg); width: 100%; min-width: 0; }
+textarea { font-family: var(--f-mono); font-size: 12px; resize: vertical; min-height: 120px; line-height: 1.5; }
+input.mono { font-family: var(--f-mono); font-size: 12px; }
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
+.field { display: grid; gap: 4px; align-content: start; }
+.field > span { color: var(--muted); font-size: 12px; }
+.field small { color: var(--muted); font-size: 11.5px; }
+.field small.bad { color: var(--err); }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: start; }
+.muted { color: var(--muted); }
+.mono { font-family: var(--f-mono); }
+.empty { text-align: center; padding: 34px 16px; color: var(--muted); display: grid; gap: 8px; justify-items: center; }
+.empty b { color: var(--fg); font-size: 15px; }
+
+/* switch */
+.sw { position: relative; width: 36px; height: 20px; flex: none; }
+.sw input { opacity: 0; position: absolute; inset: 0; margin: 0; cursor: pointer; z-index: 1; }
+.sw i { position: absolute; inset: 0; border-radius: 10px; background: var(--line); transition: background .15s; }
+.sw i::after { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: transform .15s; }
+.sw input:checked + i { background: var(--accent); }
+.sw input:checked + i::after { transform: translateX(16px); }
+.sw input:focus-visible + i { outline: 2px solid var(--accent); outline-offset: 2px; }
+.srow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 12px; padding: 4px 0; }
+.srow small { display: block; color: var(--muted); font-size: 11.5px; }
+
+/* connection hero */
+.hero { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 18px; align-items: center; padding: 18px; }
+.power { width: 86px; height: 86px; border-radius: 50%; border: 2px solid var(--line); background: var(--panel2); color: var(--muted); cursor: pointer; display: grid; place-items: center; transition: all .2s; }
+.power svg { width: 36px; height: 36px; }
+.power:hover { border-color: var(--accent); color: var(--fg); }
+.power.on { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 0 28px color-mix(in srgb, var(--accent) 55%, transparent); }
+.power.wait { border-color: var(--warn); color: var(--warn); animation: blink 1s infinite; }
+.hero .st { font-family: var(--f-display); font-size: 22px; }
+.hero .sub { color: var(--muted); font-family: var(--f-mono); font-size: 12px; overflow-wrap: anywhere; }
+.stats { display: grid; grid-template-columns: repeat(3, auto); gap: 4px 22px; text-align: right; }
+.stats b { font-family: var(--f-mono); font-size: 16px; font-weight: 500; font-variant-numeric: tabular-nums; display: block; }
+.stats span { font-size: 11px; color: var(--muted); }
+
+/* server cards */
+.list { display: grid; gap: 8px; }
+.srv { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); cursor: pointer; }
+.srv:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+.srv.sel { border-color: var(--accent); }
+.srv .dot { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--line); }
+.srv.sel .dot { border-color: var(--accent); background: var(--accent); }
+.srv .nm { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.srv .ad { font-family: var(--f-mono); font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tag { font-family: var(--f-mono); font-size: 11px; padding: 2px 7px; border-radius: 10px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.tag.a { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+
+/* menus */
+.ctxmenu { position: fixed; z-index: 45; min-width: 200px; padding: 6px; border-radius: 10px; background: var(--panel2); border: 1px solid var(--line); box-shadow: 0 14px 40px rgb(0 0 0 / .45); display: grid; }
+.ctxmenu button { font: inherit; text-align: left; padding: 8px 10px; border: 0; border-radius: 6px; background: none; color: var(--fg); cursor: pointer; }
+.ctxmenu button:hover { background: var(--panel); }
+.ctxmenu button.bad { color: var(--err); }
+
+/* routing */
+.rgrid { display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 14px; align-items: start; }
+.prof { display: flex; justify-content: space-between; gap: 8px; align-items: center; padding: 8px 10px; border-radius: 6px; border: 1px solid transparent; cursor: pointer; }
+.prof:hover { background: var(--panel2); }
+.prof.sel { border-color: var(--line); background: var(--panel2); }
+.prof.sel b { color: var(--accent); }
+.prof .tag { flex: none; }
+.prof b { font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* split tunnelling */
+.items { display: grid; gap: 6px; }
+.item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; }
+.item.off { opacity: .5; }
+.item .ico { width: 30px; height: 30px; border-radius: 7px; display: grid; place-items: center; font-family: var(--f-display); font-size: 13px; color: #fff; }
+.item .t { min-width: 0; }
+.item .t b { font-weight: 600; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item .t small { font-family: var(--f-mono); font-size: 11px; color: var(--muted); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.x { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 18px; line-height: 1; padding: 2px 6px; border-radius: 4px; }
+.x:hover { color: var(--err); }
+.addrow { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto; gap: 8px; }
+.note { font-size: 12px; color: var(--muted); padding: 8px 10px; border-left: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 6%, transparent); border-radius: 0 6px 6px 0; }
+
+/* log */
+.logbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.logbar input { flex: 1 1 220px; width: auto; }
+.logt { width: 100%; border-collapse: collapse; font-family: var(--f-mono); font-size: 12px; }
+.logt th { text-align: left; font-family: var(--f-body); font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); }
+.logt td { padding: 5px 8px; border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+.logt td.vpn { color: var(--accent); }
+.logt td.byp { color: var(--muted); }
+.logt td.rej { color: var(--err); }
+.logwrap { max-height: calc(100vh - 230px); overflow: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+
+/* settings overlay */
+.setpane { position: absolute; inset: 0; background: var(--bg); overflow: auto; z-index: 5; }
+.main { position: relative; }
+.sethead { display: flex; align-items: center; gap: 10px; padding: 12px 18px; border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; z-index: 1; }
+.sethead b { font-family: var(--f-display); font-size: 18px; flex: 1; }
+.setbody { padding: 14px 18px 24px; max-width: 760px; display: grid; gap: 12px; }
+fieldset { border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px 12px; margin: 0; display: grid; gap: 6px; background: var(--panel); }
+legend { font-size: 10.5px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); font-weight: 600; padding: 0 4px; }
+.about { display: flex; gap: 14px; align-items: center; }
+.about svg { width: 54px; height: 54px; flex: none; }
+.about a { color: var(--accent); text-decoration: none; }
+.links { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* dialog */
+dialog { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--fg); padding: 0; width: min(560px, 94vw); max-height: 90vh; }
+dialog::backdrop { background: rgb(0 0 0 / .6); }
+.dlg { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; max-height: 90vh; }
+.dlg header { padding: 14px 16px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 10px; }
+.dlg header b { font-family: var(--f-display); font-size: 17px; flex: 1; }
+.dlg .body { padding: 14px 16px; overflow: auto; display: grid; gap: 11px; }
+.dlg footer { padding: 12px 16px; border-top: 1px solid var(--line); display: flex; gap: 8px; justify-content: flex-end; }
+details.adv summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
+details.adv[open] > div { display: grid; gap: 11px; margin-top: 8px; }
+
+/* toast */
+.toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--panel2); border: 1px solid var(--line); padding: 9px 16px; border-radius: 8px; box-shadow: 0 10px 30px rgb(0 0 0 / .4); z-index: 60; }
+.toast b { color: var(--accent); font-weight: 600; }
+
+@media (max-width: 760px) {
+  .main { grid-template-columns: 56px minmax(0, 1fr); }
+  .tab span, .rail .ver { display: none; }
+  .rgrid, .two, .hero { grid-template-columns: minmax(0, 1fr); }
+  .stats { text-align: left; }
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <g id="logo">
+    <g stroke="var(--fg)" stroke-width="5" stroke-linecap="round"><path d="M32 6v12M50 6v12M68 6v12M6 32h12M6 50h12M6 68h12M82 32h12M82 50h12M82 68h12M26 82v12M74 82v12"/></g>
+    <rect x="18" y="18" width="64" height="64" rx="10" fill="var(--fg)"/>
+    <path d="M34 82V52a16 16 0 0 1 32 0v30z" fill="var(--bg)"/>
+    <path d="M42 82V57a8 8 0 0 1 16 0v25z" fill="var(--logoacc, var(--accent))"/>
+  </g>
+</defs></svg>
+
+<div class="app">
+  <div class="top">
+    <span class="brand"><svg viewBox="0 0 100 100" id="brandLogo"><use href="#logo"/></svg>TUNNEL</span>
+    <span class="status" id="status"><i></i><span id="statusTxt"></span></span>
+    <button class="btn sm" id="reBtn" type="button" hidden></button>
+    <span class="grow"></span>
+    <button class="iconbtn" id="uiBtn" type="button"></button>
+    <button class="iconbtn" id="setBtn" type="button" aria-pressed="false"><svg viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="3" rx="1.5" fill="currentColor"/><rect x="3" y="10.5" width="18" height="3" rx="1.5" fill="currentColor"/><rect x="3" y="16.5" width="18" height="3" rx="1.5" fill="currentColor"/></svg></button>
+  </div>
+  <div class="main">
+    <nav class="rail" role="tablist" id="rail"></nav>
+    <section class="view" id="view"></section>
+    <section class="setpane" id="setPane" hidden></section>
+  </div>
+</div>
+
+<dialog id="dlg"></dialog>
+<input type="file" id="fileIn" hidden>
+
+<script>
+(function () {
+'use strict';
+var VERSION = 'V1.0', RELEASED = '31.10.2026';
+var $ = function (id) { return document.getElementById(id); };
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function uid() { return Math.random().toString(36).slice(2, 9); }
+
+/* ---------- i18n ---------- */
+var L = {
+ ru: {
+  servers: 'Серверы', routing: 'Маршрутизация', split: 'Раздельное туннелирование', log: 'Журнал соединений', settings: 'Настройки',
+  st_off: 'Отключено', st_wait: 'Подключение…', st_on: 'Подключено',
+  connectTo: 'Подключиться к', noServer: 'Сервер не выбран', addServer: 'Добавить сервер', import: 'Импорт',
+  uptime: 'время', down: 'соединений', up: 'через VPN',
+  emptyT: 'Создайте первый сервер', emptyD: 'Добавьте свой сервер TrustTunnel вручную или импортируйте конфиг, выданный сервером.',
+  create: 'Создать', save: 'Сохранить', cancel: 'Отмена', del: 'Удалить', edit: 'Изменить', dup: 'Дублировать', copyLink: 'Копировать ссылку',
+  editServer: 'Изменить сервер', serverName: 'Название сервера', address: 'Адрес', addressH: 'IPv4/IPv6 или домен; если порт не указан — 443',
+  domain: 'Домен из сертификата сервера', username: 'Имя пользователя', password: 'Пароль', protocol: 'Протокол',
+  profile: 'Профиль маршрутизации', dns: 'DNS-серверы, по одному в строке', dnsH: 'IP, tls://, https://, quic://, h3:// или sdns://. Если пусто — 46.243.231.30 (AdGuard DNS без фильтрации)',
+  ipv6: 'Разрешить IPv6 через сервер', advanced: 'Дополнительно', sni: 'Свой SNI', fp: 'TLS-отпечаток', fpOwn: 'Свой отпечаток',
+  authType: 'Тип TLS-аутентификации', cr: 'Client Random, hex', crKey: 'Ключ Client Random, hex', pem: 'Самоподписанный сертификат, PEM', pemBtn: 'Выбрать PEM-файл', pemSet: 'Сертификат загружен',
+  fill: 'Заполните это поле', nameUsed: 'Это имя уже занято', badAddr: 'Формат x.x.x.x[:порт] или домен',
+  delServerQ: 'Удалить сервер?', delServerD: 'Сервер <b>{0}</b> будет удалён', created: 'Сервер <b>{0}</b> создан', deleted: 'Сервер <b>{0}</b> удалён', savedT: 'Изменения сохранены', linkCopied: 'Ссылка на сервер скопирована', duplicated: 'Сервер продублирован',
+  importT: 'Импорт сервера', importD: 'Вставьте конфиг, выгруженный с сервера (TOML), или ссылку tt://. Можно выбрать файл.', importFile: 'Выбрать файл', importBad: 'Не удалось разобрать конфиг', linkLater: 'Ссылки tt:// разбираются только в приложении для Windows',
+  profiles: 'Профили', addProfile: 'Добавить профиль', defaultProfile: 'Профиль по умолчанию', mode: 'Режим', modeVpn: 'Через VPN', modeBypass: 'В обход',
+  modeVpnD: 'Правила работают как список «пустить через VPN», остальное — напрямую.', modeBypassD: 'Весь трафик идёт через VPN, кроме подходящего под правила.',
+  rules: 'Правила, по одному в строке', rulesH: 'Домены любого уровня, IP-адрес, IP с портом, IP с маской', delRules: 'Удалить все правила', rename: 'Переименовать', delProfile: 'Удалить профиль',
+  usedBy: 'Используется серверами', none: 'нет', profileName: 'Название профиля', delProfileQ: 'Удалить профиль?', delRulesQ: 'Удалить все правила?',
+  splitOn: 'Раздельное туннелирование', splitOnD: 'Работает поверх профиля маршрутизации. Правила по приложениям и IP применяются первыми.',
+  splitMode: 'Режим', sExclude: 'Выбранное — в обход VPN', sInclude: 'Только выбранное — через VPN',
+  sExcludeD: 'Всё идёт через VPN, кроме отмеченных приложений и адресов.', sIncludeD: 'Через VPN идут только отмеченные приложения и адреса, остальное — напрямую.',
+  apps: 'Приложения', addApp: 'Добавить .exe', fromRunning: 'Из запущенных', appsEmpty: 'Приложения не добавлены',
+  ips: 'IP-адреса и подсети', ipPh: '192.168.1.0/24, 8.8.8.8, 1.2.3.4:443', notePh: 'Подпись (необязательно)', add: 'Добавить', ipsEmpty: 'Адреса не добавлены', badIp: 'Формат: IP, IP:порт, IP/маска',
+  running: 'Запущенные приложения', pick: 'Выбрать',
+  logSearch: 'Фильтр: домен, IP, приложение…', pause: 'Пауза', resume: 'Продолжить', clear: 'Очистить',
+  logEmptyT: 'Соединений пока нет', logEmptyD: 'Журнал показывает, куда идёт трафик и как он маршрутизируется. Подключитесь к серверу и откройте сайт.',
+  colTime: 'Время', colApp: 'Приложение', colProto: 'Прот.', colDst: 'Назначение', colRoute: 'Маршрут', colRule: 'Правило',
+  rVpn: 'VPN', rByp: 'напрямую', rRej: 'отклонено', reconnect: 'Переподключить', reconnectD: 'Настройки изменились — переподключитесь, чтобы применить',
+  errAccess: 'Нет доступа к службе Tunnel', errNoService: 'Служба Tunnel не установлена — переустановите приложение', errTimeout: 'Служба Tunnel не ответила вовремя', errOther: 'Не удалось подключиться, подробности в логах', badLink: 'Не удалось разобрать ссылку',
+  updNew: 'Доступна версия {0}', updGet: 'Скачать и установить', updLoading: 'Загрузка… {0}%', updErr: 'Не удалось проверить обновления', updInstall: 'Установить',
+  splitIncEmpty: 'В режиме «только выбранное» без отмеченных приложений и адресов весь трафик пойдёт напрямую.', fpDefault: 'Без имитации',
+  general: 'Общие', language: 'Язык', theme: 'Оформление', dark: 'Тёмное', light: 'Светлое',
+  launch: 'Запуск и подключение', autostart: 'Запускать вместе с Windows', openWin: 'Открывать окно при запуске', openWinD: 'Иначе приложение стартует свёрнутым в трей',
+  autoconnect: 'Подключаться при запуске', autoconnectD: 'К последнему выбранному серверу', autoconnectNo: 'Серверы не добавлены — настройка заработает после добавления',
+  minTray: 'Сворачивать в трей при закрытии окна',
+  excluded: 'Исключённые маршруты', excludedD: 'Низкоуровневое исключение подсетей из туннеля. Важнее профилей. Только CIDR, по одному в строке.',
+  logging: 'Журнал приложения', level: 'Уровень', lvBasic: 'Обычный', lvDebug: 'Отладка', lvDebugD: 'Пишет больше событий, для поиска проблем',
+  sensitive: 'Чувствительные данные', sStrip: 'Вырезать', sInclude2: 'Оставлять', sensD: 'Пароли и ссылки на сервер не пишутся никогда',
+  exportLogs: 'Выгрузить логи и сведения о системе', delLogs: 'Удалить логи приложения', logsDeleted: 'Логи приложения удалены', logsExported: 'Логи выгружены',
+  updates: 'Обновления', autoUpd: 'Проверять обновления автоматически', checkUpd: 'Проверить сейчас', upToDate: 'Установлена последняя версия',
+  about: 'О приложении', aboutD: 'Клиент TrustTunnel для Windows. Подключается только к вашим собственным серверам.',
+  credits: 'Протокол и эталонные клиенты — TrustTunnel от AdGuard, Apache 2.0',
+  quitQ: 'Выйти из Tunnel?', quitD: 'Активное подключение будет разорвано', close: 'Закрыть', export: 'Выгрузить настройки', importCfg: 'Загрузить настройки'
+ },
+ en: {
+  servers: 'Servers', routing: 'Routing', split: 'Split tunneling', log: 'Connection log', settings: 'Settings',
+  st_off: 'Disconnected', st_wait: 'Connecting…', st_on: 'Connected',
+  connectTo: 'Connect to', noServer: 'No server selected', addServer: 'Add server', import: 'Import',
+  uptime: 'uptime', down: 'connections', up: 'via VPN',
+  emptyT: 'Create your first server', emptyD: 'Add your TrustTunnel server manually or import the config exported by the server.',
+  create: 'Create', save: 'Save', cancel: 'Cancel', del: 'Delete', edit: 'Edit', dup: 'Duplicate', copyLink: 'Copy link',
+  editServer: 'Edit server', serverName: 'Server name', address: 'Address', addressH: 'IPv4/IPv6 or domain; port 443 if not specified',
+  domain: 'Domain name from server certificate', username: 'Username', password: 'Password', protocol: 'Protocol',
+  profile: 'Routing profile', dns: 'DNS servers, one per line', dnsH: 'IP, tls://, https://, quic://, h3:// or sdns://. If empty, 46.243.231.30 (AdGuard DNS Non-filtering) is used',
+  ipv6: 'Allow IPv6 connections via the server', advanced: 'Advanced', sni: 'Custom SNI', fp: 'TLS fingerprint', fpOwn: 'Own fingerprint',
+  authType: 'TLS authentication type', cr: 'Client Random, hex', crKey: 'Client Random auth key, hex', pem: 'Self-signed certificate, PEM', pemBtn: 'Choose PEM file', pemSet: 'Certificate loaded',
+  fill: 'Please fill out this field', nameUsed: 'This name is already used', badAddr: 'Use x.x.x.x[:port] or a domain',
+  delServerQ: 'Delete server?', delServerD: 'Server <b>{0}</b> will be deleted', created: 'Server <b>{0}</b> created', deleted: 'Server <b>{0}</b> deleted', savedT: 'Changes saved', linkCopied: 'Server link copied', duplicated: 'Server duplicated',
+  importT: 'Import server', importD: 'Paste the config exported by the server (TOML) or a tt:// link. You can also choose a file.', importFile: 'Choose file', importBad: 'Could not parse the config', linkLater: 'tt:// links are decoded only in the Windows app',
+  profiles: 'Profiles', addProfile: 'Add profile', defaultProfile: 'Default profile', mode: 'Mode', modeVpn: 'VPN', modeBypass: 'Bypass',
+  modeVpnD: 'Rules act as an allow list for the tunnel, everything else goes direct.', modeBypassD: 'All traffic goes through VPN except what matches the rules.',
+  rules: 'Rules, one per line', rulesH: 'Domains of any level, IP address, IP with port, IP with mask', delRules: 'Delete all rules', rename: 'Rename', delProfile: 'Delete profile',
+  usedBy: 'Used by servers', none: 'none', profileName: 'Profile name', delProfileQ: 'Delete profile?', delRulesQ: 'Delete all rules?',
+  splitOn: 'Split tunneling', splitOnD: 'Works on top of the routing profile. App and IP rules are applied first.',
+  splitMode: 'Mode', sExclude: 'Selected bypass VPN', sInclude: 'Only selected use VPN',
+  sExcludeD: 'Everything goes through VPN except the checked apps and addresses.', sIncludeD: 'Only the checked apps and addresses go through VPN, the rest goes direct.',
+  apps: 'Apps', addApp: 'Add .exe', fromRunning: 'From running', appsEmpty: 'No apps added',
+  ips: 'IP addresses and subnets', ipPh: '192.168.1.0/24, 8.8.8.8, 1.2.3.4:443', notePh: 'Label (optional)', add: 'Add', ipsEmpty: 'No addresses added', badIp: 'Format: IP, IP:port, IP/mask',
+  running: 'Running apps', pick: 'Pick',
+  logSearch: 'Filter: domain, IP, app…', pause: 'Pause', resume: 'Resume', clear: 'Clear',
+  logEmptyT: 'No connections yet', logEmptyD: 'The log shows where your traffic goes and how it is routed. Connect to your server and open a website.',
+  colTime: 'Time', colApp: 'App', colProto: 'Proto', colDst: 'Destination', colRoute: 'Route', colRule: 'Rule',
+  rVpn: 'VPN', rByp: 'direct', rRej: 'rejected', reconnect: 'Reconnect', reconnectD: 'Settings changed — reconnect to apply them',
+  errAccess: 'No access to the Tunnel service', errNoService: 'The Tunnel service is not installed — reinstall the app', errTimeout: 'The Tunnel service did not answer in time', errOther: 'Could not connect, see the logs', badLink: 'Could not decode the link',
+  updNew: 'Version {0} is available', updGet: 'Download and install', updLoading: 'Downloading… {0}%', updErr: 'Could not check for updates', updInstall: 'Install',
+  splitIncEmpty: 'In “only selected” mode with nothing checked all traffic goes direct.', fpDefault: 'No mimicry',
+  general: 'General', language: 'Language', theme: 'Theme', dark: 'Dark', light: 'Light',
+  launch: 'Launch and connection', autostart: 'Launch with Windows', openWin: 'Open window on launch', openWinD: 'Otherwise the app starts minimised to tray',
+  autoconnect: 'Auto-connect on launch', autoconnectD: 'To the last selected server', autoconnectNo: 'No servers added. Add one to apply this setting',
+  minTray: 'Minimise to tray when the window is closed',
+  excluded: 'Excluded routes', excludedD: 'Low-level exclusion of subnets from the tunnel. Takes precedence over profiles. CIDR only, one per line.',
+  logging: 'App logging', level: 'Level', lvBasic: 'Default', lvDebug: 'Debug', lvDebugD: 'Logs extra events, for diagnosing problems',
+  sensitive: 'Sensitive data', sStrip: 'Stripped', sInclude2: 'Included', sensD: 'Passwords and server links are never logged',
+  exportLogs: 'Export app logs and system info', delLogs: 'Delete app logs', logsDeleted: 'App logs deleted', logsExported: 'App logs exported',
+  updates: 'Updates', autoUpd: 'Check for updates automatically', checkUpd: 'Check now', upToDate: 'You have the latest version',
+  about: 'About', aboutD: 'TrustTunnel client for Windows. Connects only to servers you run yourself.',
+  credits: 'Protocol and reference clients: TrustTunnel by AdGuard, Apache 2.0',
+  quitQ: 'Quit Tunnel?', quitD: 'The active connection will be closed', close: 'Close', export: 'Export settings', importCfg: 'Load settings'
+ }
+};
+function t(k) { var s = (L[S.lang] || L.ru)[k]; if (s == null) s = L.ru[k] || k; for (var i = 1; i < arguments.length; i++) s = s.replace('{' + (i - 1) + '}', esc(arguments[i])); return s; }
+
+/* ---------- state ---------- */
+var DEF = {
+  lang: 'ru', theme: 'dark', tab: 'servers', sel: 's1',
+  servers: [
+    { id: 's1', name: 'VPS Амстердам', addr: '203.0.113.24:443', host: 'vpn.example.com', user: 'user', pass: 'secret', proto: 'http2', profile: 'p1', dns: '', ipv6: true, sni: '', fp: 'chrome', auth: 'none', cr: '', crKey: '', pem: '' },
+    { id: 's2', name: 'Домашний', addr: '198.51.100.7:8443', host: 'home.example.net', user: 'me', pass: 'secret', proto: 'quic', profile: 'p2', dns: 'tls://1.1.1.1', ipv6: false, sni: '', fp: 'chrome', auth: 'none', cr: '', crKey: '', pem: '' }
+  ],
+  profiles: [
+    { id: 'p1', name: 'Профиль по умолчанию', mode: 'bypass', rules: '' },
+    { id: 'p2', name: 'Работа', mode: 'vpn', rules: 'youtube.com\ngoogle.com\n140.82.112.0/20\n10.20.0.5:22' }
+  ],
+  split: {
+    on: true, mode: 'exclude',
+    apps: [
+      { id: 'a1', name: 'Steam', path: 'C:\\Program Files (x86)\\Steam\\steam.exe', on: true },
+      { id: 'a2', name: 'Telegram', path: 'C:\\Users\\User\\AppData\\Roaming\\Telegram Desktop\\Telegram.exe', on: true },
+      { id: 'a3', name: 'Altium Designer', path: 'C:\\Program Files\\Altium\\AD24\\X2.exe', on: false }
+    ],
+    ips: [
+      { id: 'i1', v: '192.168.0.0/16', note: 'Домашняя сеть', on: true },
+      { id: 'i2', v: '77.88.8.8', note: 'Яндекс DNS', on: true },
+      { id: 'i3', v: '95.163.0.10:443', note: '', on: false }
+    ]
+  },
+  set: { autostart: true, openWin: false, autoconnect: false, minTray: true, excluded: '10.0.0.0/8\n172.16.0.0/12\n192.168.0.0/16', level: 'basic', sensitive: 'strip', autoUpd: true }
+};
+// the real app starts empty; the demo data above is only for opening this page in a browser
+var BLANK = {
+  lang: 'ru', theme: 'dark', tab: 'servers', sel: null, servers: [],
+  profiles: [{ id: 'p1', name: 'Профиль по умолчанию', mode: 'bypass', rules: '' }],
+  split: { on: false, mode: 'exclude', apps: [], ips: [] },
+  set: { autostart: false, openWin: false, autoconnect: false, minTray: true, excluded: '10.0.0.0/8\n172.16.0.0/12\n192.168.0.0/16\n169.254.0.0/16\n224.0.0.0/3', level: 'basic', sensitive: 'strip', autoUpd: true }
+};
+var HOST = window.chrome && window.chrome.webview ? window.chrome.webview : null;
+var HI = window.TUNNEL_HOST || {};
+if (HI.label) VERSION = HI.label;
+if (HI.day) RELEASED = HI.day;
+function fill(o, def) {
+  if (!o || typeof o !== 'object' || Array.isArray(o)) return JSON.parse(JSON.stringify(def));
+  Object.keys(def).forEach(function (k) {
+    if (!(k in o)) o[k] = JSON.parse(JSON.stringify(def[k]));
+    else if (def[k] && typeof def[k] === 'object' && !Array.isArray(def[k])) o[k] = fill(o[k], def[k]);
+  });
+  return o;
+}
+var S = null;
+var RT = { conn: 'off', since: 0, count: 0, viaVpn: 0, log: [], paused: false, q: '', setOpen: false, profSel: null, toml: null, reconnect: false, upd: null };
+var saveTimer = null;
+function persist() {
+  if (!HOST) { try { localStorage.setItem('tunnel.ui', JSON.stringify(S)); } catch (e) {} }
+  else { clearTimeout(saveTimer); saveTimer = setTimeout(function () { send('save', { state: JSON.stringify(S) }); }, 300); }
+  if (S) renderStatus();
+}
+
+/* host bridge: window.chrome.webview messages to Tunnel.exe */
+var seq = 0, waits = {};
+function send(t, extra) { if (!HOST) return; var m = extra || {}; m.t = t; HOST.postMessage(m); }
+function ask(t, extra) {
+  return new Promise(function (res, rej) {
+    if (!HOST) { rej(new Error('no-host')); return; }
+    var id = ++seq; waits[id] = { res: res, rej: rej };
+    var m = extra || {}; m.t = t; m.req = id; HOST.postMessage(m);
+  });
+}
+if (HOST) HOST.addEventListener('message', function (e) {
+  var m = e.data; if (!m || typeof m !== 'object') return;
+  if (m.t === 'res') { var w = waits[m.req]; delete waits[m.req]; if (w) { if (m.error) w.rej(new Error(m.error)); else w.res(m.data); } return; }
+  if (!S) return;
+  if (m.t === 'vpn') onVpnState(m.state);
+  else if (m.t === 'conn') onConn(m.info);
+  else if (m.t === 'tray') onTray(m);
+  else if (m.t === 'link') importDlg(m.uri);
+  else if (m.t === 'upd') onUpd(m);
+});
+
+/* ---------- icons ---------- */
+var IC = {
+  servers: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></svg>',
+  routing: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M8.5 18H14a4 4 0 0 0 0-8h-4a4 4 0 0 1 0-8h5.5"/></svg>',
+  split: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h7l4-6h7M14 18h7M10 12l4 6"/><path d="M18 3l3 3-3 3M18 15l3 3-3 3"/></svg>',
+  log: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>',
+  power: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 3v9"/><path d="M6.3 6.6a8 8 0 1 0 11.4 0"/></svg>',
+  dots: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>',
+  plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  imp: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"/></svg>',
+  sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+  moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>'
+};
+var TABS = ['servers', 'routing', 'split', 'log'];
+
+/* ---------- shell ---------- */
+function renderShell() {
+  document.documentElement.dataset.ui = S.theme; document.documentElement.lang = S.lang;
+  $('rail').innerHTML = TABS.map(function (k) { return '<button class="tab" role="tab" type="button" data-tab="' + k + '" aria-selected="' + (S.tab === k && !RT.setOpen) + '">' + IC[k] + '<span>' + t(k) + '</span></button>'; }).join('') + '<div class="ver">Tunnel ' + VERSION + '</div>';
+  $('uiBtn').innerHTML = S.theme === 'dark' ? IC.sun : IC.moon; $('uiBtn').title = t('theme');
+  $('setBtn').title = t('settings'); $('setBtn').setAttribute('aria-pressed', String(RT.setOpen));
+  renderStatus();
+}
+function renderStatus() {
+  var el = $('status'); el.className = 'status' + (RT.conn === 'on' ? ' on' : RT.conn === 'wait' ? ' wait' : '');
+  var s = cur(); $('statusTxt').textContent = t('st_' + RT.conn) + (RT.conn !== 'off' && s ? ' · ' + s.name : '');
+  var stale = HOST && RT.conn === 'on' && s && RT.toml && buildToml(s) !== RT.toml;
+  $('reBtn').hidden = !stale; $('reBtn').title = t('reconnectD'); $('reBtn').textContent = '↻ ' + t('reconnect');
+  document.documentElement.style.setProperty('--logoacc', RT.conn === 'on' ? 'var(--accent)' : RT.conn === 'wait' ? 'var(--warn)' : 'var(--off)');
+}
+function render() {
+  renderShell();
+  $('setPane').hidden = !RT.setOpen;
+  if (RT.setOpen) { renderSettings(); return; }
+  ({ servers: renderServers, routing: renderRouting, split: renderSplit, log: renderLog })[S.tab]();
+}
+$('rail').onclick = function (e) { var b = e.target.closest('.tab'); if (!b) return; S.tab = b.dataset.tab; RT.setOpen = false; persist(); render(); };
+$('uiBtn').onclick = function () { S.theme = S.theme === 'dark' ? 'light' : 'dark'; persist(); render(); };
+$('setBtn').onclick = function () { RT.setOpen = !RT.setOpen; render(); };
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && RT.setOpen && !$('dlg').open) { RT.setOpen = false; render(); } });
+
+/* ---------- helpers ---------- */
+function cur() { for (var i = 0; i < S.servers.length; i++) if (S.servers[i].id === S.sel) return S.servers[i]; return S.servers[0] || null; }
+function profName(id) { for (var i = 0; i < S.profiles.length; i++) if (S.profiles[i].id === id) return S.profiles[i].name; return '—'; }
+function fmtDur(ms) { var s = Math.floor(ms / 1000), h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60; s %= 60; return (h ? h + ':' : '') + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0'); }
+function toast(html) { var d = document.createElement('div'); d.className = 'toast'; d.innerHTML = html; document.body.appendChild(d); setTimeout(function () { d.remove(); }, 2400); }
+function sw(id, on) { return '<label class="sw"><input type="checkbox" id="' + id + '"' + (on ? ' checked' : '') + '><i></i></label>'; }
+function menu(x, y, items) {
+  closeMenu(); var m = document.createElement('div'); m.className = 'ctxmenu'; m.id = 'ctx';
+  items.forEach(function (it) { var b = document.createElement('button'); b.type = 'button'; b.textContent = it[0]; if (it[2]) b.className = 'bad'; b.onclick = function () { closeMenu(); it[1](); }; m.appendChild(b); });
+  document.body.appendChild(m); var r = m.getBoundingClientRect();
+  m.style.left = Math.min(x, innerWidth - r.width - 8) + 'px'; m.style.top = Math.min(y, innerHeight - r.height - 8) + 'px';
+  setTimeout(function () { document.addEventListener('click', closeMenu, { once: true }); });
+}
+function closeMenu() { var m = $('ctx'); if (m) m.remove(); }
+function confirmDlg(title, html, okLabel, fn) {
+  openDlg(title, '<p style="margin:0">' + html + '</p>', '<button class="btn" data-close>' + t('cancel') + '</button><button class="btn primary" id="okBtn">' + okLabel + '</button>');
+  $('okBtn').onclick = function () { $('dlg').close(); fn(); };
+}
+function openDlg(title, body, foot) {
+  var d = $('dlg');
+  d.innerHTML = '<div class="dlg"><header><b>' + esc(title) + '</b><button class="x" data-close aria-label="' + t('close') + '">✕</button></header><div class="body">' + body + '</div><footer>' + foot + '</footer></div>';
+  d.querySelectorAll('[data-close]').forEach(function (b) { b.onclick = function () { d.close(); }; });
+  d.showModal();
+}
+
+/* ---------- connection ---------- */
+function toggleConn() {
+  if (!cur()) return;
+  if (!HOST) { demoToggle(); return; }
+  if (RT.conn !== 'off') { RT.reconnect = false; ask('disconnect'); return; }
+  connect();
+}
+function connect() {
+  var s = cur(); if (!s) return;
+  var toml = buildToml(s);
+  RT.toml = toml; RT.conn = 'wait'; refreshConn();
+  ask('connect', { toml: toml }).catch(function (e) { RT.conn = 'off'; refreshConn(); toast(errText(e.message)); });
+}
+function reconnect() { if (RT.conn === 'off') { connect(); return; } RT.reconnect = true; ask('disconnect'); }
+function errText(code) { return ({ access: t('errAccess'), 'no-service': t('errNoService'), timeout: t('errTimeout') })[code] || t('errOther'); }
+function onVpnState(st) {
+  var was = RT.conn;
+  RT.conn = st === 2 ? 'on' : st === 0 ? 'off' : 'wait';
+  if (RT.conn === 'on' && was !== 'on') { RT.since = Date.now(); RT.count = 0; RT.viaVpn = 0; if (!RT.toml && cur()) RT.toml = buildToml(cur()); }
+  if (st === 0 && RT.reconnect) { RT.reconnect = false; connect(); return; }
+  refreshConn();
+}
+function refreshConn() { renderStatus(); if (!RT.setOpen && S.tab === 'servers') updHero(); }
+setInterval(function () { if (RT.conn === 'on' && S && !RT.setOpen && S.tab === 'servers') updHero(); }, 1000);
+function onConn(info) {
+  if (!info) return;
+  var d = info.date ? new Date(info.date) : new Date();
+  var dst = info.dst || '';
+  if (info.domain) { var port = dst.slice(dst.lastIndexOf(':') + 1); dst = info.domain + (port && /^\d+$/.test(port) ? ':' + port : ''); }
+  var route = info.action === 'tunnel' ? 'vpn' : info.action === 'bypass' ? 'byp' : 'rej';
+  addLog({ time: d.toTimeString().slice(0, 8), app: info.app || '—', path: info.path || '', proto: info.proto || '', dst: dst, route: route });
+}
+function addLog(r) {
+  RT.count++; if (r.route === 'vpn') RT.viaVpn++;
+  if (RT.paused) return;
+  RT.log.unshift(r); if (RT.log.length > 1000) RT.log.pop();
+  if (!RT.setOpen && S.tab === 'log') renderLogRows();
+}
+function onTray(m) {
+  if (m.action === 'connect') { if (RT.conn === 'off') connect(); }
+  else if (m.action === 'disconnect') { if (RT.conn !== 'off') toggleConn(); }
+  else if (m.action === 'select' && m.id !== S.sel) { S.sel = m.id; persist(); render(); if (RT.conn !== 'off') reconnect(); }
+}
+
+/* config for the TrustTunnel engine (TOML, see TrustTunnelClient/trusttunnel/README.md) */
+function q(v) { return '"' + String(v == null ? '' : v).replace(/[\\"\u0000-\u001f\u007f]/g, function (c) { return ({ '\\': '\\\\', '"': '\\"', '\n': '\\n', '\r': '\\r', '\t': '\\t' })[c] || '\\u' + ('000' + c.charCodeAt(0).toString(16)).slice(-4); }) + '"'; }
+function arr(a) { return '[' + a.map(q).join(', ') + ']'; }
+function lines(txt) { return String(txt || '').split(/[\r\n]+/).map(function (l) { return l.trim(); }).filter(Boolean); }
+function withPort(a) {
+  a = a.trim();
+  if (/^\[.*\]$/.test(a)) return a + ':443';
+  if (a.indexOf(':') < 0) return a + ':443';
+  if (a.indexOf(':') !== a.lastIndexOf(':') && a[0] !== '[') return '[' + a + ']:443'; // bare IPv6
+  return a;
+}
+function endpointToml(s) {
+  return '[endpoint]\n' +
+    'hostname = ' + q(s.sni ? s.sni + '|' + s.host : s.host) + '\n' +
+    'addresses = ' + arr([withPort(s.addr)]) + '\n' +
+    'has_ipv6 = ' + !!s.ipv6 + '\n' +
+    'username = ' + q(s.user) + '\n' +
+    'password = ' + q(s.pass) + '\n' +
+    'client_random = ' + q(s.auth === 'cr' ? s.cr : '') + '\n' +
+    'client_random_auth_key = ' + q(s.auth === 'crkey' ? s.crKey : '') + '\n' +
+    'skip_verification = ' + !!s.skipVerify + '\n' +
+    'certificate = ' + q(s.pem || '') + '\n' +
+    'upstream_protocol = ' + q(s.proto === 'quic' ? 'http3' : 'http2') + '\n' +
+    'tls_profile = ' + q(s.fp === 'own' ? 'default' : (s.fp || 'chrome')) + '\n' +
+    'anti_dpi = ' + !!s.antiDpi + '\n' +
+    'dns_upstreams = ' + arr(lines(s.dns)) + '\n' +
+    'name = ' + q(s.name) + '\n';
+}
+function isPlainNet(v) { return v.indexOf('/') > 0 || (v.indexOf(':') < 0) || (v.indexOf(':') !== v.lastIndexOf(':') && v[0] !== '['); } // no port: can be a route
+function buildToml(s) {
+  var p = S.profiles.filter(function (x) { return x.id === s.profile; })[0] || S.profiles[0];
+  var sp = S.split, apps = sp.apps.filter(function (a) { return a.on; }).map(function (a) { return a.path; });
+  var ips = sp.ips.filter(function (i) { return i.on; }).map(function (i) { return i.v; });
+  var excluded = lines(S.set.excluded);
+  if (sp.on && sp.mode === 'exclude') ips.forEach(function (v) { if (isPlainNet(v)) excluded.push(v.indexOf('/') > 0 ? v : (v.indexOf(':') >= 0 ? v + '/128' : v + '/32')); });
+  return '# Tunnel ' + VERSION + '\n' +
+    'loglevel = ' + q(S.set.level === 'debug' ? 'debug' : 'info') + '\n' +
+    'vpn_mode = ' + q(p && p.mode === 'vpn' ? 'selective' : 'general') + '\n' +
+    'killswitch_enabled = false\n' +
+    'exclusions = ' + arr(p ? lines(p.rules) : []) + '\n\n' +
+    endpointToml(s) + '\n' +
+    '[listener.tun]\n' +
+    'included_routes = ["0.0.0.0/0", "2000::/3"]\n' +
+    'excluded_routes = ' + arr(excluded) + '\n' +
+    'change_system_dns = true\n\n' +
+    '[split]\n' +
+    'enabled = ' + !!sp.on + '\n' +
+    'mode = ' + q(sp.mode === 'include' ? 'include' : 'exclude') + '\n' +
+    'apps = ' + arr(apps) + '\n' +
+    'targets = ' + arr(ips) + '\n';
+}
+
+/* demo: the page opened in a browser simulates connections */
+var demoTimer = null;
+function demoToggle() {
+  if (RT.conn !== 'off') { RT.conn = 'off'; clearInterval(demoTimer); refreshConn(); return; }
+  RT.conn = 'wait'; refreshConn();
+  setTimeout(function () { if (RT.conn !== 'wait') return; RT.conn = 'on'; RT.since = Date.now(); RT.count = 0; RT.viaVpn = 0; refreshConn(); demoTimer = setInterval(demoTick, 1000); }, 1300);
+}
+var DEMO = [['chrome.exe', 'youtube.com:443', 'TCP'], ['chrome.exe', 'github.com:443', 'TCP'], ['Telegram.exe', '149.154.167.51:443', 'TCP'], ['steam.exe', 'steamcontent.com:443', 'TCP'], ['svchost.exe', 'dns.google:853', 'TCP'], ['msedge.exe', 'ya.ru:443', 'TCP'], ['chrome.exe', '192.168.1.1:80', 'TCP'], ['Discord.exe', 'gateway.discord.gg:443', 'UDP'], ['firefox.exe', 'wikipedia.org:443', 'TCP']];
+function demoTick() {
+  var d = DEMO[Math.floor(Math.random() * DEMO.length)], sp = S.split;
+  var hit = sp.on && (sp.apps.some(function (a) { return a.on && a.path.toLowerCase().split('\\').pop() === d[0].toLowerCase(); }) || sp.ips.some(function (i) { return i.on && d[1].indexOf(i.v.split('/')[0].split(':')[0].split('.').slice(0, 2).join('.')) === 0; }));
+  var route = sp.on ? (hit ? (sp.mode === 'exclude' ? 'byp' : 'vpn') : (sp.mode === 'include' ? 'byp' : 'vpn')) : 'vpn';
+  addLog({ time: new Date().toTimeString().slice(0, 8), app: d[0], proto: d[2], dst: d[1], route: route });
+}
+
+/* ---------- servers ---------- */
+function renderServers() {
+  var s = cur(), v = $('view');
+  var head = '<div class="head"><h2>' + t('servers') + '</h2><span class="grow"></span><button class="btn" id="impBtn">' + IC.imp + t('import') + '</button><button class="btn primary" id="addBtn">' + IC.plus + t('addServer') + '</button></div>';
+  if (!S.servers.length) {
+    v.innerHTML = '<div class="inner">' + head + '<div class="box empty"><svg viewBox="0 0 100 100" width="64" height="64"><use href="#logo"/></svg><b>' + t('emptyT') + '</b><span>' + t('emptyD') + '</span><div class="links"><button class="btn" id="impBtn2">' + t('import') + '</button><button class="btn primary" id="addBtn2">' + t('create') + '</button></div></div></div>';
+    $('impBtn2').onclick = function () { importDlg(); }; $('addBtn2').onclick = function () { serverDlg(null); };
+  } else {
+    v.innerHTML = '<div class="inner">' + head +
+      '<div class="box hero"><button class="power" id="power" aria-label="' + t('connectTo') + '">' + IC.power + '</button>' +
+      '<div><div class="st" id="heroSt"></div><div class="sub" id="heroSub"></div></div>' +
+      '<div class="stats"><div><b id="hUp">—</b><span>' + t('uptime') + '</span></div><div><b id="hRx">—</b><span>' + t('down') + '</span></div><div><b id="hTx">—</b><span>' + t('up') + '</span></div></div></div>' +
+      '<div class="list" id="srvList">' + S.servers.map(function (x) {
+        return '<div class="srv' + (x.id === S.sel ? ' sel' : '') + '" data-id="' + x.id + '"><span class="dot"></span><div style="min-width:0"><div class="nm">' + esc(x.name) + '</div><div class="ad">' + esc(x.addr) + ' · ' + esc(x.host) + '</div></div>' +
+          '<span class="tag' + (x.proto === 'quic' ? ' a' : '') + '">' + (x.proto === 'quic' ? 'QUIC' : 'HTTP/2') + '</span><button class="iconbtn" data-menu="' + x.id + '" aria-label="…">' + IC.dots + '</button></div>';
+      }).join('') + '</div></div>';
+    $('power').onclick = toggleConn;
+    $('srvList').onclick = function (e) {
+      var mb = e.target.closest('[data-menu]');
+      if (mb) { e.stopPropagation(); var id = mb.dataset.menu, x = S.servers.filter(function (q) { return q.id === id; })[0]; var r = mb.getBoundingClientRect(); menu(r.right - 200, r.bottom + 4, [[t('edit'), function () { serverDlg(x); }], [t('copyLink'), function () { if (!HOST) { toast(t('linkCopied')); return; } ask('link-encode', { toml: endpointToml(x) }).then(function () { toast(t('linkCopied')); }, function () { toast(t('badLink')); }); }], [t('dup'), function () { var c = JSON.parse(JSON.stringify(x)); c.id = uid(); c.name = x.name + ' (copy)'; S.servers.splice(S.servers.indexOf(x) + 1, 0, c); persist(); render(); toast(t('duplicated')); }], [t('del'), function () { confirmDlg(t('delServerQ'), t('delServerD', x.name), t('del'), function () { if (x.id === S.sel && RT.conn !== 'off') toggleConn(); S.servers.splice(S.servers.indexOf(x), 1); if (S.sel === x.id) S.sel = S.servers[0] ? S.servers[0].id : null; persist(); render(); toast(t('deleted', x.name)); }); }, true]]); return; }
+      var row = e.target.closest('.srv'); if (!row || row.dataset.id === S.sel) return;
+      S.sel = row.dataset.id; persist(); render();
+      if (RT.conn !== 'off') { if (HOST) reconnect(); else { demoToggle(); demoToggle(); } }
+    };
+    updHero();
+  }
+  $('impBtn').onclick = function () { importDlg(); }; $('addBtn').onclick = function () { serverDlg(null); };
+}
+function updHero() {
+  var s = cur(); if (!$('power') || !s) return;
+  $('power').className = 'power' + (RT.conn === 'on' ? ' on' : RT.conn === 'wait' ? ' wait' : '');
+  $('heroSt').textContent = t('st_' + RT.conn);
+  $('heroSub').textContent = s.name + ' · ' + s.host + ' · ' + profName(s.profile);
+  var on = RT.conn === 'on';
+  $('hUp').textContent = on ? fmtDur(Date.now() - RT.since) : '—'; $('hRx').textContent = on ? String(RT.count) : '—'; $('hTx').textContent = on && RT.count ? Math.round(RT.viaVpn * 100 / RT.count) + '%' : '—';
+}
+
+function serverDlg(x) {
+  var isNew = !x; x = x || { id: uid(), name: '', addr: '', host: '', user: '', pass: '', proto: 'http2', profile: S.profiles[0] && S.profiles[0].id, dns: '', ipv6: true, sni: '', fp: 'chrome', auth: 'none', cr: '', crKey: '', pem: '' };
+  var fps = [['chrome', 'Chrome'], ['chrome_canary', 'Chrome Canary'], ['safari', 'Safari'], ['firefox', 'Firefox'], ['okhttp', 'OkHttp'], ['openssl', 'OpenSSL'], ['default', t('fpDefault')]];
+  function f(id, label, val, type, help, cls) { return '<label class="field"><span>' + label + '</span><input type="' + (type || 'text') + '" id="' + id + '" value="' + esc(val) + '" class="' + (cls || '') + '" autocomplete="off" spellcheck="false"><small id="' + id + 'E">' + (help || '') + '</small></label>'; }
+  var body = f('fName', t('serverName'), x.name) +
+    '<div class="two">' + f('fAddr', t('address'), x.addr, 'text', t('addressH'), 'mono') + f('fHost', t('domain'), x.host, 'text', '', 'mono') + '</div>' +
+    '<div class="two">' + f('fUser', t('username'), x.user) + f('fPass', t('password'), x.pass, 'password') + '</div>' +
+    '<div class="two"><div class="field"><span>' + t('protocol') + '</span><div class="seg" id="fProto"><button type="button" data-v="http2" aria-pressed="' + (x.proto === 'http2') + '">HTTP/2</button><button type="button" data-v="quic" aria-pressed="' + (x.proto === 'quic') + '">QUIC</button></div></div>' +
+    '<label class="field"><span>' + t('profile') + '</span><select id="fProf">' + S.profiles.map(function (p) { return '<option value="' + p.id + '"' + (p.id === x.profile ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join('') + '</select></label></div>' +
+    '<label class="field"><span>' + t('dns') + '</span><textarea id="fDns" style="min-height:64px" placeholder="tls://1.1.1.1">' + esc(x.dns) + '</textarea><small>' + t('dnsH') + '</small></label>' +
+    '<div class="srow"><span>' + t('ipv6') + '</span>' + sw('fIpv6', x.ipv6) + '</div>' +
+    '<details class="adv"><summary>' + t('advanced') + '</summary><div>' +
+      f('fSni', t('sni'), x.sni, 'text', '', 'mono') +
+      '<div class="two"><label class="field"><span>' + t('fp') + '</span><select id="fFp">' + fps.map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === x.fp ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label>' +
+      '<label class="field"><span>' + t('authType') + '</span><select id="fAuth"><option value="none">—</option><option value="cr"' + (x.auth === 'cr' ? ' selected' : '') + '>Client Random</option><option value="crkey"' + (x.auth === 'crkey' ? ' selected' : '') + '>Client Random auth key</option></select></label></div>' +
+      '<div id="crBox"></div>' +
+      '<div class="field"><span>' + t('pem') + '</span><div class="links"><button class="btn sm" type="button" id="fPemBtn">' + t('pemBtn') + '</button><small class="muted" id="fPemSt" style="align-self:center">' + (x.pem ? t('pemSet') : '') + '</small></div></div>' +
+    '</div></details>';
+  openDlg(isNew ? t('addServer') : t('editServer'), body, '<button class="btn" data-close>' + t('cancel') + '</button><button class="btn primary" id="fSave">' + (isNew ? t('create') : t('save')) + '</button>');
+  var proto = x.proto, pem = x.pem;
+  $('fProto').onclick = function (e) { var b = e.target.closest('button'); if (!b) return; proto = b.dataset.v; [].forEach.call(this.children, function (c) { c.setAttribute('aria-pressed', String(c === b)); }); };
+  function crBox() { var a = $('fAuth').value; $('crBox').innerHTML = a === 'cr' ? f('fCr', t('cr'), x.cr, 'text', 'abcdef, 0a0b0c/0f0f0f · max 64', 'mono') : a === 'crkey' ? f('fCrKey', t('crKey'), x.crKey, 'text', 'max 64', 'mono') : ''; }
+  $('fAuth').onchange = crBox; crBox();
+  $('fPemBtn').onclick = function () { pickFile('.pem,.crt,.cer', function (txt) { pem = txt; $('fPemSt').textContent = t('pemSet'); }); };
+  $('fSave').onclick = function () {
+    var ok = true;
+    function need(id, test, msg) { var el = $(id), v = el.value.trim(), e = $(id + 'E'); var bad = !v ? t('fill') : (test && !test(v) ? msg : ''); if (bad) { ok = false; e.textContent = bad; e.className = 'bad'; } else if (e.className === 'bad') { e.textContent = id === 'fAddr' ? t('addressH') : ''; e.className = ''; } return v; }
+    var name = need('fName', function (v) { return !S.servers.some(function (q) { return q.id !== x.id && q.name === v; }); }, t('nameUsed'));
+    var addr = need('fAddr', function (v) { return /^(\[[0-9a-f:]+\]|[0-9a-z.-]+|[0-9a-f:]+)(:\d{1,5})?$/i.test(v); }, t('badAddr'));
+    var host = need('fHost'), user = need('fUser'), pass = need('fPass');
+    if (!ok) return;
+    var o = { id: x.id, name: name, addr: addr, host: host, user: user, pass: pass, proto: proto, profile: $('fProf').value, dns: $('fDns').value.trim(), ipv6: $('fIpv6').checked, sni: $('fSni').value.trim(), fp: $('fFp').value, auth: $('fAuth').value, cr: $('fCr') ? $('fCr').value.trim() : x.cr, crKey: $('fCrKey') ? $('fCrKey').value.trim() : x.crKey, pem: pem, skipVerify: !!x.skipVerify, antiDpi: !!x.antiDpi };
+    if (isNew) { S.servers.push(o); if (!S.sel) S.sel = o.id; } else S.servers[S.servers.indexOf(x)] = o;
+    persist(); $('dlg').close(); render(); toast(isNew ? t('created', name) : t('savedT'));
+  };
+}
+function pickFile(accept, fn) { var fi = $('fileIn'); fi.accept = accept; fi.value = ''; fi.onchange = function () { var file = fi.files[0]; if (!file) return; var r = new FileReader(); r.onload = function () { fn(String(r.result), file.name); }; r.readAsText(file); }; fi.click(); }
+function parseToml(txt) {
+  var o = {}, i = 0, n = txt.length;
+  function ws() { while (i < n && (txt[i] === ' ' || txt[i] === '\t')) i++; }
+  function skipLine() { while (i < n && txt[i] !== '\n') i++; i++; }
+  function unesc(x) { return x.replace(/\\(u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8}|.)/g, function (m, c) { if (c[0] === 'u' || c[0] === 'U') return String.fromCodePoint(parseInt(c.slice(1), 16)); return ({ n: '\n', t: '\t', r: '\r', b: '\b', f: '\f', '"': '"', '\\': '\\' })[c] || c; }); }
+  function str() {
+    var q3 = txt.substr(i, 3);
+    if (q3 === '"""' || q3 === "'''") {
+      var e = txt.indexOf(q3, i + 3); if (e < 0) return undefined;
+      var raw = txt.slice(i + 3, e).replace(/^\r?\n/, ''); i = e + 3;
+      return q3 === '"""' ? unesc(raw) : raw;
+    }
+    if (txt[i] === "'") { var e2 = txt.indexOf("'", i + 1); if (e2 < 0) return undefined; var r = txt.slice(i + 1, e2); i = e2 + 1; return r; }
+    var out = ''; i++;
+    while (i < n && txt[i] !== '"' && txt[i] !== '\n') { if (txt[i] === '\\') { out += txt.substr(i, 2); i += 2; } else out += txt[i++]; }
+    i++; return unesc(out);
+  }
+  function val() {
+    ws();
+    if (txt[i] === '"' || txt[i] === "'") return str();
+    if (txt[i] === '[') {
+      i++; var a = [];
+      while (i < n) {
+        while (i < n && /[\s,]/.test(txt[i])) i++;
+        if (txt[i] === '#') { skipLine(); continue; }
+        if (txt[i] === ']') { i++; break; }
+        var v = val(); if (v === undefined) break; a.push(v);
+      }
+      return a;
+    }
+    var m = /^(true|false|[-+]?[\d._]+)/.exec(txt.slice(i, i + 40)); if (!m) return undefined;
+    i += m[0].length; return m[0] === 'true' ? true : m[0] === 'false' ? false : Number(m[0].replace(/_/g, ''));
+  }
+  while (i < n) {
+    ws();
+    if (txt[i] === '\n' || txt[i] === '\r') { i++; continue; }
+    if (txt[i] === '#' || txt[i] === '[') { skipLine(); continue; }
+    var k = /^([A-Za-z0-9_-]+)\s*=/.exec(txt.slice(i, i + 80)); if (!k) { skipLine(); continue; }
+    i += k[0].length; var v = val(); if (v !== undefined && !(k[1].toLowerCase() in o)) o[k[1].toLowerCase()] = v;
+    if (i > 0 && txt[i - 1] !== '\n') skipLine();
+  }
+  return o;
+}
+function importDlg(prefill) {
+  openDlg(t('importT'), '<p class="muted" style="margin:0">' + t('importD') + '</p><textarea id="impTxt" style="min-height:200px" placeholder=\'hostname = "vpn.example.com"\naddresses = ["203.0.113.24:443"]\nusername = "…"\npassword = "…"\nupstream_protocol = "http2"\'></textarea><small id="impErr" class="bad"></small>',
+    '<button class="btn" id="impFile">' + t('importFile') + '</button><span class="grow"></span><button class="btn" data-close>' + t('cancel') + '</button><button class="btn primary" id="impGo">' + t('import') + '</button>');
+  $('impFile').onclick = function () { pickFile('.toml,.txt,.conf', function (txt) { $('impTxt').value = txt; }); };
+  function fromToml(c) {
+    if (!c.hostname || !c.addresses || !c.addresses.length) return false;
+    var host = String(c.hostname), sni = '';
+    if (host.indexOf('|') > 0) { sni = host.split('|')[0]; host = host.split('|')[1]; }
+    if (c.custom_sni) sni = c.custom_sni;
+    var o = { id: uid(), name: c.name || host, addr: String(c.addresses[0]), host: host, user: c.username || '', pass: c.password || '', proto: c.upstream_protocol === 'http3' ? 'quic' : 'http2', profile: S.profiles[0] && S.profiles[0].id, dns: (c.dns_upstreams || []).join('\n'), ipv6: c.has_ipv6 !== false, sni: sni, fp: c.tls_profile || 'chrome', auth: c.client_random_auth_key ? 'crkey' : c.client_random ? 'cr' : 'none', cr: c.client_random || '', crKey: c.client_random_auth_key || '', pem: c.certificate || '', skipVerify: !!c.skip_verification, antiDpi: !!c.anti_dpi };
+    var n = 1, base = o.name; while (S.servers.some(function (q) { return q.name === o.name; })) o.name = base + ' ' + (++n);
+    S.servers.push(o); if (!S.sel) S.sel = o.id; persist(); $('dlg').close(); render(); toast(t('created', o.name));
+    return true;
+  }
+  $('impGo').onclick = function () {
+    var txt = $('impTxt').value.trim();
+    if (/^(tt|trusttunnel):\/\//i.test(txt)) {
+      if (!HOST) { $('impErr').textContent = t('linkLater'); return; }
+      ask('link-decode', { uri: txt }).then(function (toml) { if (!fromToml(parseToml(toml))) $('impErr').textContent = t('badLink'); }, function () { $('impErr').textContent = t('badLink'); });
+      return;
+    }
+    if (!fromToml(parseToml(txt))) $('impErr').textContent = t('importBad');
+  };
+  if (prefill) { $('impTxt').value = prefill; $('impGo').click(); }
+}
+
+/* ---------- routing ---------- */
+function renderRouting() {
+  if (!S.profiles.length) S.profiles.push({ id: uid(), name: t('defaultProfile'), mode: 'bypass', rules: '' });
+  if (!S.profiles.some(function (p) { return p.id === RT.profSel; })) RT.profSel = S.profiles[0].id;
+  var p = S.profiles.filter(function (q) { return q.id === RT.profSel; })[0];
+  var used = S.servers.filter(function (s) { return s.profile === p.id; }).map(function (s) { return esc(s.name); }).join(', ') || t('none');
+  $('view').innerHTML = '<div class="inner"><div class="head"><h2>' + t('routing') + '</h2></div><div class="rgrid">' +
+    '<div class="box" style="padding:8px"><div class="eyebrow" style="padding:4px 6px">' + t('profiles') + '</div><div id="profList">' + S.profiles.map(function (q) {
+      return '<div class="prof' + (q.id === p.id ? ' sel' : '') + '" data-id="' + q.id + '"><b>' + esc(q.name) + '</b><span class="tag' + (q.mode === 'vpn' ? ' a' : '') + '">' + (q.mode === 'vpn' ? t('modeVpn') : t('modeBypass')) + '</span></div>';
+    }).join('') + '</div><button class="btn sm" id="addProf" style="margin:6px">' + IC.plus + t('addProfile') + '</button></div>' +
+    '<div class="box"><div class="head"><b style="font-size:16px;flex:1">' + esc(p.name) + '</b><button class="iconbtn" id="profMenu">' + IC.dots + '</button></div>' +
+    '<div class="field"><span>' + t('mode') + '</span><div class="seg" id="pMode"><button type="button" data-v="vpn" aria-pressed="' + (p.mode === 'vpn') + '">' + t('modeVpn') + '</button><button type="button" data-v="bypass" aria-pressed="' + (p.mode === 'bypass') + '">' + t('modeBypass') + '</button></div><small>' + (p.mode === 'vpn' ? t('modeVpnD') : t('modeBypassD')) + '</small></div>' +
+    '<label class="field"><span>' + t('rules') + '</span><textarea id="pRules" style="min-height:260px" spellcheck="false" placeholder="example.com\n1.2.3.4\n1.2.3.4:443\n10.0.0.0/8">' + esc(p.rules) + '</textarea><small>' + t('rulesH') + '</small></label>' +
+    '<div class="muted" style="font-size:12px">' + t('usedBy') + ': ' + used + '</div></div></div></div>';
+  $('profList').onclick = function (e) { var r = e.target.closest('.prof'); if (r) { RT.profSel = r.dataset.id; render(); } };
+  $('pMode').onclick = function (e) { var b = e.target.closest('button'); if (!b || b.dataset.v === p.mode) return; p.mode = b.dataset.v; persist(); render(); };
+  $('pRules').oninput = function () { p.rules = this.value; persist(); };
+  $('addProf').onclick = function () { nameDlg(t('addProfile'), '', function (n) { var q = { id: uid(), name: n, mode: 'bypass', rules: '' }; S.profiles.push(q); RT.profSel = q.id; persist(); render(); }); };
+  $('profMenu').onclick = function (e) {
+    e.stopPropagation(); var r = this.getBoundingClientRect(), items = [[t('rename'), function () { nameDlg(t('rename'), p.name, function (n) { p.name = n; persist(); render(); }); }], [t('delRules'), function () { confirmDlg(t('delRulesQ'), esc(p.name), t('del'), function () { p.rules = ''; persist(); render(); }); }, true]];
+    if (S.profiles.length > 1) items.push([t('delProfile'), function () { confirmDlg(t('delProfileQ'), '<b>' + esc(p.name) + '</b>', t('del'), function () { S.profiles.splice(S.profiles.indexOf(p), 1); S.servers.forEach(function (s) { if (s.profile === p.id) s.profile = S.profiles[0].id; }); persist(); render(); }); }, true]);
+    menu(r.right - 200, r.bottom + 4, items);
+  };
+}
+function nameDlg(title, val, fn) {
+  openDlg(title, '<label class="field"><span>' + t('profileName') + '</span><input type="text" id="nmIn" value="' + esc(val) + '"><small id="nmE"></small></label>', '<button class="btn" data-close>' + t('cancel') + '</button><button class="btn primary" id="nmOk">' + t('save') + '</button>');
+  $('nmIn').focus();
+  $('nmOk').onclick = function () { var v = $('nmIn').value.trim(); if (!v) { $('nmE').textContent = t('fill'); $('nmE').className = 'bad'; return; } if (v !== val && S.profiles.some(function (p) { return p.name === v; })) { $('nmE').textContent = t('nameUsed'); $('nmE').className = 'bad'; return; } $('dlg').close(); fn(v); };
+}
+
+/* ---------- split tunnelling ---------- */
+var APPCOL = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899'];
+function appIco(name, icon) { if (icon) return '<img class="ico" src="' + esc(icon) + '" alt="">'; return appIcoTxt(name); }
+function appIcoTxt(name) { var h = 0; for (var i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0; return '<span class="ico" style="background:' + APPCOL[h % APPCOL.length] + '">' + esc(name.slice(0, 2).toUpperCase()) + '</span>'; }
+function validIp(v) {
+  var m = v.match(/^(\d{1,3}(?:\.\d{1,3}){3})(?:\/(\d{1,2})|:(\d{1,5}))?$/);
+  if (m) return m[1].split('.').every(function (o) { return +o < 256; }) && (!m[2] || +m[2] <= 32) && (!m[3] || +m[3] < 65536);
+  return /^[0-9a-f:]+(\/\d{1,3})?$/i.test(v) && v.indexOf(':') >= 0;
+}
+function renderSplit() {
+  var sp = S.split;
+  $('view').innerHTML = '<div class="inner"><div class="head"><h2>' + t('split') + '</h2></div>' +
+    '<div class="box"><div class="srow"><div><b>' + t('splitOn') + '</b><small>' + t('splitOnD') + '</small></div>' + sw('spOn', sp.on) + '</div>' +
+    '<div class="field"' + (sp.on ? '' : ' style="opacity:.5;pointer-events:none"') + '><span>' + t('splitMode') + '</span><div class="seg" id="spMode"><button type="button" data-v="exclude" aria-pressed="' + (sp.mode === 'exclude') + '">' + t('sExclude') + '</button><button type="button" data-v="include" aria-pressed="' + (sp.mode === 'include') + '">' + t('sInclude') + '</button></div><div class="note">' + (sp.mode === 'exclude' ? t('sExcludeD') : t('sIncludeD') + (sp.apps.some(function (a) { return a.on; }) || sp.ips.some(function (i) { return i.on; }) ? '' : '<br>' + t('splitIncEmpty'))) + '</div></div></div>' +
+    '<div class="two" style="align-items:start' + (sp.on ? '' : ';opacity:.5;pointer-events:none') + '">' +
+      '<div class="box"><div class="head"><span class="eyebrow" style="flex:1">' + t('apps') + ' · ' + sp.apps.length + '</span><button class="btn sm" id="appRun">' + t('fromRunning') + '</button><button class="btn sm primary" id="appAdd">' + IC.plus + t('addApp') + '</button></div>' +
+      '<div class="items" id="appList">' + (sp.apps.length ? sp.apps.map(function (a) { return '<div class="item' + (a.on ? '' : ' off') + '" data-id="' + a.id + '">' + appIco(a.name, a.icon) + '<div class="t"><b>' + esc(a.name) + '</b><small title="' + esc(a.path) + '">' + esc(a.path) + '</small></div>' + sw('ap_' + a.id, a.on) + '<button class="x" data-del aria-label="' + t('del') + '">×</button></div>'; }).join('') : '<div class="empty" style="padding:18px">' + t('appsEmpty') + '</div>') + '</div></div>' +
+      '<div class="box"><div class="eyebrow">' + t('ips') + ' · ' + sp.ips.length + '</div>' +
+      '<div class="addrow"><input type="text" id="ipIn" class="mono" placeholder="' + t('ipPh') + '" spellcheck="false"><input type="text" id="ipNote" placeholder="' + t('notePh') + '"><button class="btn primary" id="ipAdd">' + t('add') + '</button></div><small id="ipErr" class="bad"></small>' +
+      '<div class="items" id="ipList">' + (sp.ips.length ? sp.ips.map(function (i) { return '<div class="item' + (i.on ? '' : ' off') + '" data-id="' + i.id + '" style="grid-template-columns:minmax(0,1fr) auto auto"><div class="t"><b class="mono" style="font-weight:500">' + esc(i.v) + '</b><small>' + esc(i.note || '') + '</small></div>' + sw('ip_' + i.id, i.on) + '<button class="x" data-del aria-label="' + t('del') + '">×</button></div>'; }).join('') : '<div class="empty" style="padding:18px">' + t('ipsEmpty') + '</div>') + '</div></div>' +
+    '</div></div>';
+  $('spOn').onchange = function () { sp.on = this.checked; persist(); render(); };
+  $('spMode').onclick = function (e) { var b = e.target.closest('button'); if (!b) return; sp.mode = b.dataset.v; persist(); render(); };
+  function listHandlers(listId, arr) {
+    $(listId).onclick = function (e) { var row = e.target.closest('.item'); if (!row) return; if (e.target.closest('[data-del]')) { arr.splice(arr.findIndex(function (q) { return q.id === row.dataset.id; }), 1); persist(); render(); } };
+    $(listId).onchange = function (e) { var row = e.target.closest('.item'); if (!row) return; arr.forEach(function (q) { if (q.id === row.dataset.id) q.on = e.target.checked; }); row.classList.toggle('off', !e.target.checked); persist(); };
+  }
+  listHandlers('appList', sp.apps); listHandlers('ipList', sp.ips);
+  $('appAdd').onclick = function () {
+    if (HOST) { ask('pick-exe').then(function (a) { if (a) addApp(a.name, a.path, a.icon); }); return; }
+    var fi = $('fileIn'); fi.accept = '.exe'; fi.value = '';
+    fi.onchange = function () { var f = fi.files[0]; if (!f) return; addApp(f.name.replace(/\.exe$/i, ''), f.name); };
+    fi.click();
+  };
+  $('appRun').onclick = runningDlg;
+  function addIp() {
+    var v = $('ipIn').value.trim(); if (!v) return;
+    var parts = v.split(/[\s,;]+/).filter(Boolean), bad = parts.filter(function (p) { return !validIp(p); });
+    if (bad.length) { $('ipErr').textContent = t('badIp') + ' — ' + bad.join(', '); return; }
+    var note = $('ipNote').value.trim();
+    parts.forEach(function (p) { if (!sp.ips.some(function (q) { return q.v === p; })) sp.ips.push({ id: uid(), v: p, note: note, on: true }); });
+    persist(); render(); $('ipIn').focus();
+  }
+  $('ipAdd').onclick = addIp; $('ipIn').onkeydown = $('ipNote').onkeydown = function (e) { if (e.key === 'Enter') addIp(); };
+}
+function addApp(name, path, icon) { var sp = S.split; if (sp.apps.some(function (a) { return a.path.toLowerCase() === path.toLowerCase(); })) return; sp.apps.push({ id: uid(), name: name, path: path, icon: icon || null, on: true }); persist(); render(); }
+function runningDlg() {
+  var demo = [['Google Chrome', 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'], ['Discord', 'C:\\Users\\User\\AppData\\Local\\Discord\\app-1.0.9180\\Discord.exe'], ['Firefox', 'C:\\Program Files\\Mozilla Firefox\\firefox.exe'], ['qBittorrent', 'C:\\Program Files\\qBittorrent\\qbittorrent.exe'], ['Steam', 'C:\\Program Files (x86)\\Steam\\steam.exe']].map(function (r) { return { name: r[0], path: r[1] }; });
+  (HOST ? ask('running') : Promise.resolve(demo)).then(function (run) {
+    openDlg(t('running'), '<div class="items">' + (run.length ? run.map(function (r, i) { var has = S.split.apps.some(function (a) { return a.path.toLowerCase() === r.path.toLowerCase(); }); return '<div class="item" style="grid-template-columns:auto minmax(0,1fr) auto">' + appIco(r.name, r.icon) + '<div class="t"><b>' + esc(r.name) + '</b><small>' + esc(r.path) + '</small></div><button class="btn sm" data-i="' + i + '"' + (has ? ' disabled' : '') + '>' + (has ? '✓' : t('pick')) + '</button></div>'; }).join('') : '<div class="empty">—</div>') + '</div>', '<button class="btn" data-close>' + t('close') + '</button>');
+    $('dlg').querySelector('.items').onclick = function (e) { var b = e.target.closest('[data-i]'); if (!b) return; var r = run[+b.dataset.i]; addApp(r.name, r.path, r.icon); b.disabled = true; b.textContent = '✓'; };
+  });
+}
+
+/* ---------- connection log ---------- */
+function renderLog() {
+  $('view').innerHTML = '<div class="inner"><div class="head"><h2>' + t('log') + '</h2></div>' +
+    '<div class="logbar"><input type="search" id="logQ" placeholder="' + t('logSearch') + '" value="' + esc(RT.q) + '"><button class="btn" id="logPause">' + (RT.paused ? t('resume') : t('pause')) + '</button><button class="btn" id="logClear">' + t('clear') + '</button></div>' +
+    '<div id="logBody"></div></div>';
+  $('logQ').oninput = function () { RT.q = this.value; renderLogRows(); };
+  $('logPause').onclick = function () { RT.paused = !RT.paused; this.textContent = RT.paused ? t('resume') : t('pause'); };
+  $('logClear').onclick = function () { RT.log = []; renderLogRows(); };
+  renderLogRows();
+}
+function renderLogRows() {
+  var b = $('logBody'); if (!b) return;
+  if (!RT.log.length) { b.innerHTML = '<div class="box empty"><b>' + t('logEmptyT') + '</b><span>' + t('logEmptyD') + '</span></div>'; return; }
+  var qq = RT.q.toLowerCase(), rows = RT.log.filter(function (r) { return !qq || (r.app + ' ' + r.dst + ' ' + r.path).toLowerCase().indexOf(qq) >= 0; }).slice(0, 400);
+  b.innerHTML = '<div class="logwrap"><table class="logt"><thead><tr><th>' + t('colTime') + '</th><th>' + t('colApp') + '</th><th>' + t('colProto') + '</th><th>' + t('colDst') + '</th><th>' + t('colRoute') + '</th></tr></thead><tbody>' +
+    rows.map(function (r) { return '<tr><td>' + esc(r.time) + '</td><td title="' + esc(r.path || r.app) + '">' + esc(r.app) + '</td><td>' + esc(r.proto) + '</td><td title="' + esc(r.dst) + '">' + esc(r.dst) + '</td><td class="' + r.route + '">' + (r.route === 'vpn' ? t('rVpn') : r.route === 'byp' ? t('rByp') : t('rRej')) + '</td></tr>'; }).join('') + '</tbody></table></div>';
+}
+
+/* ---------- settings (opens over the tabs) ---------- */
+function renderSettings() {
+  var st = S.set;
+  function chk(id, label, on, desc) { return '<label class="srow"><span>' + label + (desc ? '<small>' + desc + '</small>' : '') + '</span>' + sw(id, on) + '</label>'; }
+  $('setPane').innerHTML = '<div class="sethead"><b>' + t('settings') + '</b><button class="btn" id="setClose" title="Esc">✕</button></div><div class="setbody">' +
+    '<fieldset><legend>' + t('general') + '</legend>' +
+      '<div class="srow"><span>' + t('language') + '</span><div class="seg" id="sLang"><button type="button" data-v="ru" aria-pressed="' + (S.lang === 'ru') + '">RU</button><button type="button" data-v="en" aria-pressed="' + (S.lang === 'en') + '">EN</button></div></div>' +
+      '<div class="srow"><span>' + t('theme') + '</span><div class="seg" id="sTheme"><button type="button" data-v="dark" aria-pressed="' + (S.theme === 'dark') + '">' + t('dark') + '</button><button type="button" data-v="light" aria-pressed="' + (S.theme === 'light') + '">' + t('light') + '</button></div></div></fieldset>' +
+    '<fieldset><legend>' + t('launch') + '</legend>' +
+      chk('sAuto', t('autostart'), st.autostart) + chk('sOpen', t('openWin'), st.openWin, t('openWinD')) + chk('sTray', t('minTray'), st.minTray) +
+      chk('sConn', t('autoconnect'), st.autoconnect, S.servers.length ? t('autoconnectD') : t('autoconnectNo')) + '</fieldset>' +
+    '<fieldset><legend>' + t('excluded') + '</legend><small class="muted">' + t('excludedD') + '</small><textarea id="sExcl" spellcheck="false">' + esc(st.excluded) + '</textarea><small id="sExclE" class="bad"></small></fieldset>' +
+    '<fieldset><legend>' + t('logging') + '</legend>' +
+      '<div class="srow"><span>' + t('level') + '<small>' + (st.level === 'debug' ? t('lvDebugD') : '') + '</small></span><div class="seg" id="sLevel"><button type="button" data-v="basic" aria-pressed="' + (st.level === 'basic') + '">' + t('lvBasic') + '</button><button type="button" data-v="debug" aria-pressed="' + (st.level === 'debug') + '">' + t('lvDebug') + '</button></div></div>' +
+      '<div class="srow"><span>' + t('sensitive') + '<small>' + t('sensD') + '</small></span><div class="seg" id="sSens"><button type="button" data-v="strip" aria-pressed="' + (st.sensitive === 'strip') + '">' + t('sStrip') + '</button><button type="button" data-v="include" aria-pressed="' + (st.sensitive === 'include') + '">' + t('sInclude2') + '</button></div></div>' +
+      '<div class="links"><button class="btn sm" id="sExp">' + t('exportLogs') + '</button><button class="btn sm danger" id="sDelLogs">' + t('delLogs') + '</button></div></fieldset>' +
+    '<fieldset><legend>' + t('updates') + '</legend>' + chk('sUpd', t('autoUpd'), st.autoUpd) + '<div class="links"><button class="btn sm" id="sChk">' + t('checkUpd') + '</button>' + (RT.upd && RT.upd.newer ? '<button class="btn sm primary" id="sUpdGet">' + (RT.upd.pct != null ? t('updLoading', RT.upd.pct) : t('updGet')) + '</button><small class="muted" style="align-self:center">' + t('updNew', RT.upd.label || RT.upd.latest) + '</small>' : '') + '</div></fieldset>' +
+    '<fieldset><legend>' + t('about') + '</legend><div class="about"><svg viewBox="0 0 100 100"><use href="#logo"/></svg><div><b style="font-family:var(--f-display);font-size:17px">Tunnel ' + VERSION + '</b> <span class="muted mono" style="font-size:12px">' + RELEASED + '</span><div class="muted">' + t('aboutD') + '</div></div></div>' +
+      '<small class="muted">' + t('credits') + '</small></fieldset>' +
+    '</div>';
+  $('setClose').onclick = function () { RT.setOpen = false; render(); };
+  function seg(id, fn) { $(id).onclick = function (e) { var b = e.target.closest('button'); if (b) { fn(b.dataset.v); persist(); render(); } }; }
+  seg('sLang', function (v) { S.lang = v; }); seg('sTheme', function (v) { S.theme = v; });
+  seg('sLevel', function (v) { st.level = v; });
+  $('sSens').onclick = function (e) { var b = e.target.closest('button'); if (!b || b.dataset.v === st.sensitive) return; if (b.dataset.v === 'strip') { st.sensitive = 'strip'; persist(); render(); } else { st.sensitive = 'include'; persist(); render(); } };
+  [['sAuto', 'autostart'], ['sOpen', 'openWin'], ['sTray', 'minTray'], ['sConn', 'autoconnect'], ['sUpd', 'autoUpd']].forEach(function (p) { $(p[0]).onchange = function () { st[p[1]] = this.checked; persist(); }; });
+  $('sExcl').oninput = function () {
+    st.excluded = this.value; persist();
+    var bad = this.value.split('\n').map(function (l) { return l.trim(); }).filter(function (l) { return l && !/^(\d{1,3}(\.\d{1,3}){3}\/\d{1,2}|[0-9a-f:]+\/\d{1,3})$/i.test(l); });
+    $('sExclE').textContent = bad.length ? 'CIDR: ' + bad.join(', ') : '';
+  };
+  $('sExp').onclick = function () { (HOST ? ask('logs-export') : Promise.resolve()).then(function () { toast(t('logsExported')); }); };
+  $('sDelLogs').onclick = function () { confirmDlg(t('delLogs') + '?', '', t('del'), function () { (HOST ? ask('logs-clear') : Promise.resolve()).then(function () { toast(t('logsDeleted')); }); }); };
+  $('sChk').onclick = function () { checkUpd(true); };
+  if ($('sUpdGet')) $('sUpdGet').onclick = getUpd;
+}
+
+/* ---------- updates ---------- */
+function checkUpd(manual) {
+  if (!HOST) { if (manual) toast(t('upToDate')); return; }
+  ask('upd-check').then(function (r) {
+    if (r.error) { if (manual) toast(t('updErr')); return; }
+    RT.upd = r.newer ? { newer: true, latest: r.latest, label: r.label } : null;
+    if (r.newer) toast(t('updNew', r.label || r.latest)); else if (manual) toast(t('upToDate'));
+    if (RT.setOpen) renderSettings();
+  });
+}
+function getUpd() {
+  if (!RT.upd || RT.upd.pct != null) return;
+  RT.upd.pct = 0; renderSettings();
+  ask('upd-download').then(function (ok) { if (ok) send('upd-install'); else { RT.upd.pct = null; renderSettings(); } });
+}
+function onUpd(m) {
+  if (m.type === 'progress' && RT.upd) { RT.upd.pct = m.pct; var b = $('sUpdGet'); if (b) b.textContent = t('updLoading', m.pct); }
+  else if (m.type === 'error') { if (RT.upd) RT.upd.pct = null; toast(t('updErr')); if (RT.setOpen) renderSettings(); }
+}
+
+/* ---------- start ---------- */
+$('reBtn').onclick = reconnect;
+if (HOST) {
+  ask('ready').then(function (r) {
+    var saved = null; try { saved = r.state ? JSON.parse(r.state) : null; } catch (e) {}
+    S = fill(saved, BLANK);
+    render();
+    onVpnState(r.vpn);
+    if (r.link) importDlg(r.link);
+    if (S.set.autoconnect && RT.conn === 'off' && cur()) connect();
+    if (S.set.autoUpd) setTimeout(function () { checkUpd(false); }, 4000);
+  });
+} else {
+  try { S = JSON.parse(localStorage.getItem('tunnel.ui') || 'null'); } catch (e) { S = null; }
+  S = fill(S && S.servers ? S : null, DEF);
+  render();
+}
+})();
+</script>
+</body>
+</html>

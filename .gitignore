@@ -1,0 +1,5 @@
+core/src/
+core/out/
+desktop/bin/
+desktop/obj/
+dist/
