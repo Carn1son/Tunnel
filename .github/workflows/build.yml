@@ -71,7 +71,16 @@ jobs:
       - name: Build
         if: steps.cache.outputs.cache-hit != 'true'
         shell: pwsh
-        run: ./core/build.ps1
+        run: |
+          # the tail of the log goes into one annotation, so a failure is readable without the full log
+          $ok = $true
+          try { ./core/build.ps1 *>&1 | Tee-Object -FilePath core-build.log; if ($LASTEXITCODE) { $ok = $false } }
+          catch { ($_ | Out-String) | Out-File core-build.log -Append; $ok = $false }
+          if (-not $ok) {
+            $tail = (Get-Content core-build.log -Tail 60 | Where-Object { $_.Trim() }) -join '%0A'
+            Write-Output "::error title=engine build::$tail"
+            exit 1
+          }
       - uses: actions/upload-artifact@v4
         with:
           name: engine
