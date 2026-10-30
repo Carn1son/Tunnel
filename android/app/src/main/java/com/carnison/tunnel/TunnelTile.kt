@@ -12,7 +12,7 @@ import android.service.quicksettings.TileService
 class TunnelTile : TileService() {
     companion object {
         fun refresh(ctx: Context) {
-            runCatching { requestListeningState(ctx, ComponentName(ctx, TunnelTile::class.java)) }
+            runCatching { TileService.requestListeningState(ctx, ComponentName(ctx, TunnelTile::class.java)) }
         }
     }
 
