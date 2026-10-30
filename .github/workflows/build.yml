@@ -17,6 +17,7 @@ jobs:
       label: ${{ steps.v.outputs.label }}
       day: ${{ steps.v.outputs.day }}
       file: ${{ steps.v.outputs.file }}
+      vcode: ${{ steps.v.outputs.vcode }}
     steps:
       - uses: actions/checkout@v4
       - id: v
@@ -26,6 +27,7 @@ jobs:
           MI=$((10#$MI))
           echo "ver=2100.$((MA + 1)).$MI" >> "$GITHUB_OUTPUT"
           echo "file=$MA.$MI.0" >> "$GITHUB_OUTPUT"
+          echo "vcode=$((2100000000 + (MA + 1) * 10000 + MI))" >> "$GITHUB_OUTPUT"
           if [ "$MI" -eq 0 ]; then echo "label=V$MA.0" >> "$GITHUB_OUTPUT"; else echo "label=V$MA.$(printf %02d $MI)" >> "$GITHUB_OUTPUT"; fi
           echo "day=$(TZ=Europe/Moscow date +%d.%m.%Y)" >> "$GITHUB_OUTPUT"
 
@@ -139,16 +141,119 @@ jobs:
           name: Tunnel-windows
           path: dist/Tunnel-Setup.exe
 
+  android-engine:
+    name: TrustTunnel engine for Android (with split tunnelling)
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache key
+        id: key
+        run: echo "k=aar-$(cat core/REVISION)-${{ hashFiles('core/*.py', 'core/*.cpp', 'core/*.h', 'core/build-android.sh') }}" >> "$GITHUB_OUTPUT"
+      - name: Built engine from an earlier run
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: core/out-android
+          key: ${{ steps.key.outputs.k }}
+      - name: Conan packages from an earlier run
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/.conan2/p
+          key: conan-android-${{ hashFiles('core/REVISION') }}
+          restore-keys: conan-android-
+      - uses: actions/setup-python@v5
+        if: steps.cache.outputs.cache-hit != 'true'
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-java@v4
+        if: steps.cache.outputs.cache-hit != 'true'
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-go@v5
+        if: steps.cache.outputs.cache-hit != 'true'
+        with:
+          go-version: '1.22'
+          cache: false
+      - name: Tools
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          pip install --quiet "conan>=2.0.5,<3"
+          conan profile detect --force
+          sudo apt-get install -y -qq ninja-build > /dev/null
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;29.0.14206865" > /dev/null
+      - name: Build
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          if ! ./core/build-android.sh > aar-build.log 2>&1; then
+            echo "::error title=android engine build::$(grep -v '^\s*$' aar-build.log | tail -60 | sed ':a;N;$!ba;s/\n/%0A/g')"
+            exit 1
+          fi
+          tail -5 aar-build.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: engine-android
+          path: core/out-android/trusttunnel.aar
+
+  android:
+    name: Android APK
+    needs: [meta, android-engine]
+    runs-on: ubuntu-latest
+    env:
+      TN_VER: ${{ needs.meta.outputs.ver }}
+      TN_VCODE: ${{ needs.meta.outputs.vcode }}
+      TN_LABEL: ${{ needs.meta.outputs.label }}
+      TN_DAY: ${{ needs.meta.outputs.day }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: engine-android
+          path: android/app/libs
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Signing key
+        env:
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+        run: |
+          if [ -n "$KS_PASS" ]; then
+            openssl enc -d -aes-256-cbc -pbkdf2 -in android/keys/tunnel.jks.enc -out "$RUNNER_TEMP/tunnel.jks" -pass env:KS_PASS
+            echo "TN_KEYSTORE=$RUNNER_TEMP/tunnel.jks" >> "$GITHUB_ENV"
+            echo "TN_KEYPASS=$KS_PASS" >> "$GITHUB_ENV"
+          else
+            echo "::warning::Secret ANDROID_KEYSTORE_PASS is not set: the APK is signed with a temporary key and will not install over a previous build"
+          fi
+      - name: Build
+        run: |
+          if ! gradle -p android assembleRelease --no-daemon > apk-build.log 2>&1; then
+            echo "::error title=apk build::$(grep -E 'e: |error|FAILED|What went wrong' -A3 apk-build.log | head -60 | sed ':a;N;$!ba;s/\n/%0A/g')"
+            exit 1
+          fi
+          mkdir -p dist && cp android/app/build/outputs/apk/release/app-release.apk dist/Tunnel.apk && ls -la dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Tunnel-android
+          path: dist/Tunnel.apk
+
   release:
     name: Release (download link, updates)
-    needs: [meta, installer]
+    needs: [meta, installer, android]
+    if: always() && needs.meta.result == 'success' && (needs.installer.result == 'success' || needs.android.result == 'success')
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: Tunnel-windows
+          pattern: Tunnel-*
+          merge-multiple: true
           path: dl
       - name: Publish the release
         env:
@@ -159,9 +264,13 @@ jobs:
         run: |
           set -e
           BASE="https://github.com/$GITHUB_REPOSITORY/releases/latest/download"
-          printf '%s\n' "Tunnel $LABEL от $DAY." "" "Windows, установщик: $BASE/Tunnel-Setup.exe" "" "Приложение само проверяет обновления: Настройки → Обновления." > notes.md
+          ls -la dl
+          { echo "Tunnel $LABEL от $DAY."; echo
+            [ -f dl/Tunnel-Setup.exe ] && echo "- Windows, установщик: $BASE/Tunnel-Setup.exe"
+            [ -f dl/Tunnel.apk ] && echo "- Android: $BASE/Tunnel.apk"
+            echo; echo "Приложение само проверяет обновления: Настройки → Обновления."; } > notes.md
           gh release delete "v$VER" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag 2>/dev/null || true
-          gh release create "v$VER" dl/Tunnel-Setup.exe --repo "$GITHUB_REPOSITORY" --title "Tunnel $LABEL — $DAY" --notes-file notes.md --latest
+          gh release create "v$VER" dl/* --repo "$GITHUB_REPOSITORY" --title "Tunnel $LABEL — $DAY" --notes-file notes.md --latest
       - name: Keep only the newest release
         env:
           GH_TOKEN: ${{ github.token }}

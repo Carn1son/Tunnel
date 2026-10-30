@@ -5,11 +5,12 @@
 
 # Tunnel
 
-Windows client for self-hosted [TrustTunnel](https://github.com/TrustTunnel/TrustTunnel) VPN servers.
+Windows and Android client for self-hosted [TrustTunnel](https://github.com/TrustTunnel/TrustTunnel) VPN servers.
 
 ## Download
 
 - [Tunnel-Setup.exe](https://github.com/Carn1son/Tunnel/releases/latest/download/Tunnel-Setup.exe) — Windows 10/11, x64
+- [Tunnel.apk](https://github.com/Carn1son/Tunnel/releases/latest/download/Tunnel.apk) — Android 8 and newer, arm64
 - The app checks for updates itself
 
 ## Features
@@ -21,14 +22,17 @@ Windows client for self-hosted [TrustTunnel](https://github.com/TrustTunnel/Trus
 - Excluded routes for local networks
 - Connection log: app, destination and route of every connection
 - HTTP/2 and QUIC transports, TLS fingerprint, custom SNI, Client Random, self-signed certificates
-- Launch with Windows, auto-connect, Russian and English
+- Windows: tray icon, launch with Windows, `tt://` links
+- Android: quick settings tile, home screen widget, Always-on VPN, `tt://` links
+- Auto-connect, light and dark theme, Russian and English
 
 ## How it works
 
 - `desktop/` — Tunnel.exe: WebView2 window, tray icon, bridge to the VPN service
-- `ui/index.html` — the interface
+- `android/` — the Android app: WebView, VpnService with per-app split, tile, widget
+- `ui/index.html` — the interface, shared by both apps
 - `core/` — builds AdGuard's TrustTunnel client engine with the split tunneling hook
-- The VPN runs in the `TunnelVPN` Windows service installed by the setup
+- On Windows the VPN runs in the `TunnelVPN` service installed by the setup
 
 ## Credits
 

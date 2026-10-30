@@ -48,6 +48,7 @@ body { background: var(--bg); color: var(--fg); font-family: var(--f-body); font
 .tab:hover { color: var(--fg); }
 .tab[aria-selected=true] { border-color: var(--line); background: var(--panel2); color: var(--fg); }
 .tab[aria-selected=true] svg { color: var(--accent); }
+.tab .ls { display: none; }
 .rail .ver { margin-top: auto; padding: 8px 10px; font-family: var(--f-mono); font-size: 11px; color: var(--muted); }
 .view { overflow: auto; padding: 16px 18px 24px; min-width: 0; }
 .view > .inner { max-width: 980px; display: grid; gap: 14px; }
@@ -187,6 +188,35 @@ details.adv[open] > div { display: grid; gap: 11px; margin-top: 8px; }
 .toast b { color: var(--accent); font-weight: 600; }
 
 @media (max-width: 760px) {
+  .app { grid-template-rows: auto minmax(0, 1fr); }
+  .main { grid-template-columns: minmax(0, 1fr) !important; grid-template-rows: minmax(0, 1fr) auto; }
+  .rail { grid-row: 2; flex-direction: row; justify-content: space-around; border-right: 0; border-top: 1px solid var(--line); padding: 4px 4px calc(4px + env(safe-area-inset-bottom)); }
+  .tab { flex-direction: column; gap: 2px; padding: 6px 4px; font-size: 10.5px; flex: 1; text-align: center; justify-content: center; }
+  .tab .lf { display: none !important; }
+  .tab .ls { display: block !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  html, body { overflow-x: hidden; }
+  .brand { font-size: 0; gap: 0; }
+  .seg { width: 100%; display: flex; }
+  .seg button { flex: 1; white-space: normal; padding: 7px 8px; }
+  .srow .seg { width: auto; }
+  #reBtn .rl { display: none; }
+  .tab svg { width: 22px; height: 22px; }
+  .view { grid-row: 1; padding: 12px 12px 18px; }
+  .setpane { bottom: 0; }
+  .top { padding: 8px 10px; gap: 6px; }
+  .status { margin-left: 0; max-width: 46vw; overflow: hidden; }
+  .status span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hero { padding: 14px; gap: 12px; justify-items: center; text-align: center; }
+  .stats { text-align: center; width: 100%; justify-content: space-around; }
+  .head .btn { padding: 6px 9px; }
+  .addrow { grid-template-columns: minmax(0, 1fr) auto; }
+  .addrow #ipNote { grid-column: 1 / -1; grid-row: 2; }
+  .logt th:nth-child(3), .logt td:nth-child(3) { display: none; }
+  .logwrap { max-height: none; }
+  dialog { width: 96vw; }
+  input, select, textarea { font-size: 16px; }
+}
+@media (max-width: 760px) {
   .main { grid-template-columns: 56px minmax(0, 1fr); }
   .tab span, .rail .ver { display: none; }
   .rgrid, .two, .hero { grid-template-columns: minmax(0, 1fr); }
@@ -234,7 +264,7 @@ function uid() { return Math.random().toString(36).slice(2, 9); }
 /* ---------- i18n ---------- */
 var L = {
  ru: {
-  servers: 'Серверы', routing: 'Маршрутизация', split: 'Раздельное туннелирование', log: 'Журнал соединений', settings: 'Настройки',
+  servers: 'Серверы', routing: 'Маршрутизация', split: 'Раздельное туннелирование', log: 'Журнал соединений', serversS: 'Серверы', routingS: 'Маршруты', splitS: 'Раздельно', logS: 'Журнал', settings: 'Настройки',
   st_off: 'Отключено', st_wait: 'Подключение…', st_on: 'Подключено',
   connectTo: 'Подключиться к', noServer: 'Сервер не выбран', addServer: 'Добавить сервер', import: 'Импорт',
   uptime: 'время', down: 'соединений', up: 'через VPN',
@@ -255,7 +285,7 @@ var L = {
   splitOn: 'Раздельное туннелирование', splitOnD: 'Работает поверх профиля маршрутизации. Правила по приложениям и IP применяются первыми.',
   splitMode: 'Режим', sExclude: 'Выбранное — в обход VPN', sInclude: 'Только выбранное — через VPN',
   sExcludeD: 'Всё идёт через VPN, кроме отмеченных приложений и адресов.', sIncludeD: 'Через VPN идут только отмеченные приложения и адреса, остальное — напрямую.',
-  apps: 'Приложения', addApp: 'Добавить .exe', fromRunning: 'Из запущенных', appsEmpty: 'Приложения не добавлены',
+  apps: 'Приложения', pickApps: 'Выбрать приложения', installed: 'Приложения на телефоне', searchApps: 'Поиск приложения…', alwaysOn: 'Постоянная VPN', alwaysOnD: 'Включается в настройках Android: VPN → Tunnel → «Постоянная VPN»', openSettings: 'Открыть настройки', aboutDA: 'Клиент TrustTunnel для Android. Подключается только к вашим собственным серверам.', androidIncNote: 'На Android выбранные приложения целиком идут через VPN; адреса работают, когда приложения не выбраны.', addApp: 'Добавить .exe', fromRunning: 'Из запущенных', appsEmpty: 'Приложения не добавлены',
   ips: 'IP-адреса и подсети', ipPh: '192.168.1.0/24, 8.8.8.8, 1.2.3.4:443', notePh: 'Подпись (необязательно)', add: 'Добавить', ipsEmpty: 'Адреса не добавлены', badIp: 'Формат: IP, IP:порт, IP/маска',
   running: 'Запущенные приложения', pick: 'Выбрать',
   logSearch: 'Фильтр: домен, IP, приложение…', pause: 'Пауза', resume: 'Продолжить', clear: 'Очистить',
@@ -279,7 +309,7 @@ var L = {
   quitQ: 'Выйти из Tunnel?', quitD: 'Активное подключение будет разорвано', close: 'Закрыть', export: 'Выгрузить настройки', importCfg: 'Загрузить настройки'
  },
  en: {
-  servers: 'Servers', routing: 'Routing', split: 'Split tunneling', log: 'Connection log', settings: 'Settings',
+  servers: 'Servers', routing: 'Routing', split: 'Split tunneling', log: 'Connection log', serversS: 'Servers', routingS: 'Routing', splitS: 'Split', logS: 'Log', settings: 'Settings',
   st_off: 'Disconnected', st_wait: 'Connecting…', st_on: 'Connected',
   connectTo: 'Connect to', noServer: 'No server selected', addServer: 'Add server', import: 'Import',
   uptime: 'uptime', down: 'connections', up: 'via VPN',
@@ -300,7 +330,7 @@ var L = {
   splitOn: 'Split tunneling', splitOnD: 'Works on top of the routing profile. App and IP rules are applied first.',
   splitMode: 'Mode', sExclude: 'Selected bypass VPN', sInclude: 'Only selected use VPN',
   sExcludeD: 'Everything goes through VPN except the checked apps and addresses.', sIncludeD: 'Only the checked apps and addresses go through VPN, the rest goes direct.',
-  apps: 'Apps', addApp: 'Add .exe', fromRunning: 'From running', appsEmpty: 'No apps added',
+  apps: 'Apps', pickApps: 'Choose apps', installed: 'Apps on this phone', searchApps: 'Search apps…', alwaysOn: 'Always-on VPN', alwaysOnD: 'Turn it on in Android settings: VPN → Tunnel → Always-on VPN', openSettings: 'Open settings', aboutDA: 'TrustTunnel client for Android. Connects only to servers you run yourself.', androidIncNote: 'On Android the chosen apps go through the VPN entirely; addresses apply when no apps are chosen.', addApp: 'Add .exe', fromRunning: 'From running', appsEmpty: 'No apps added',
   ips: 'IP addresses and subnets', ipPh: '192.168.1.0/24, 8.8.8.8, 1.2.3.4:443', notePh: 'Label (optional)', add: 'Add', ipsEmpty: 'No addresses added', badIp: 'Format: IP, IP:port, IP/mask',
   running: 'Running apps', pick: 'Pick',
   logSearch: 'Filter: domain, IP, app…', pause: 'Pause', resume: 'Resume', clear: 'Clear',
@@ -359,8 +389,17 @@ var BLANK = {
   split: { on: false, mode: 'exclude', apps: [], ips: [] },
   set: { autostart: false, openWin: false, autoconnect: false, minTray: true, excluded: '10.0.0.0/8\n172.16.0.0/12\n192.168.0.0/16\n169.254.0.0/16\n224.0.0.0/3', level: 'basic', sensitive: 'strip', autoUpd: true }
 };
+if (window.TunnelAndroid && !(window.chrome && window.chrome.webview)) (function () {
+  var subs = [];
+  window.chrome = window.chrome || {};
+  window.chrome.webview = { postMessage: function (m) { window.TunnelAndroid.post(JSON.stringify(m)); }, addEventListener: function (t, cb) { subs.push(cb); } };
+  window.__tnRecv = function (m) { subs.forEach(function (cb) { cb({ data: m }); }); };
+  try { window.TUNNEL_HOST = JSON.parse(window.TunnelAndroid.host()); } catch (e) {}
+})();
 var HOST = window.chrome && window.chrome.webview ? window.chrome.webview : null;
 var HI = window.TUNNEL_HOST || {};
+var ANDROID = HI.platform === 'android';
+if (ANDROID) document.documentElement.classList.add('android');
 if (HI.label) VERSION = HI.label;
 if (HI.day) RELEASED = HI.day;
 function fill(o, def) {
@@ -419,7 +458,7 @@ var TABS = ['servers', 'routing', 'split', 'log'];
 /* ---------- shell ---------- */
 function renderShell() {
   document.documentElement.dataset.ui = S.theme; document.documentElement.lang = S.lang;
-  $('rail').innerHTML = TABS.map(function (k) { return '<button class="tab" role="tab" type="button" data-tab="' + k + '" aria-selected="' + (S.tab === k && !RT.setOpen) + '">' + IC[k] + '<span>' + t(k) + '</span></button>'; }).join('') + '<div class="ver">Tunnel ' + VERSION + '</div>';
+  $('rail').innerHTML = TABS.map(function (k) { return '<button class="tab" role="tab" type="button" data-tab="' + k + '" aria-selected="' + (S.tab === k && !RT.setOpen) + '">' + IC[k] + '<span class="lf">' + t(k) + '</span><span class="ls">' + t(k + 'S') + '</span></button>'; }).join('') + '<div class="ver">Tunnel ' + VERSION + '</div>';
   $('uiBtn').innerHTML = S.theme === 'dark' ? IC.sun : IC.moon; $('uiBtn').title = t('theme');
   $('setBtn').title = t('settings'); $('setBtn').setAttribute('aria-pressed', String(RT.setOpen));
   renderStatus();
@@ -428,7 +467,7 @@ function renderStatus() {
   var el = $('status'); el.className = 'status' + (RT.conn === 'on' ? ' on' : RT.conn === 'wait' ? ' wait' : '');
   var s = cur(); $('statusTxt').textContent = t('st_' + RT.conn) + (RT.conn !== 'off' && s ? ' · ' + s.name : '');
   var stale = HOST && RT.conn === 'on' && s && RT.toml && buildToml(s) !== RT.toml;
-  $('reBtn').hidden = !stale; $('reBtn').title = t('reconnectD'); $('reBtn').textContent = '↻ ' + t('reconnect');
+  $('reBtn').hidden = !stale; $('reBtn').title = t('reconnectD'); $('reBtn').innerHTML = '↻<span class="rl"> ' + t('reconnect') + '</span>';
   document.documentElement.style.setProperty('--logoacc', RT.conn === 'on' ? 'var(--accent)' : RT.conn === 'wait' ? 'var(--warn)' : 'var(--off)');
 }
 function render() {
@@ -478,7 +517,14 @@ function connect() {
   var s = cur(); if (!s) return;
   var toml = buildToml(s);
   RT.toml = toml; RT.conn = 'wait'; refreshConn();
-  ask('connect', { toml: toml }).catch(function (e) { RT.conn = 'off'; refreshConn(); toast(errText(e.message)); });
+  ask('connect', { toml: toml, android: ANDROID ? androidExtra(s) : null }).catch(function (e) { RT.conn = 'off'; refreshConn(); toast(errText(e.message)); });
+}
+function androidExtra(s) {
+  var sp = S.split, apps = sp.on ? sp.apps.filter(function (a) { return a.on; }).map(function (a) { return a.path; }) : [];
+  var ips = sp.ips.filter(function (i) { return i.on; }).map(function (i) { return i.v; });
+  var excluded = lines(S.set.excluded);
+  if (sp.on && sp.mode === 'exclude') ips.forEach(function (v) { if (isPlainNet(v)) excluded.push(v.indexOf('/') > 0 ? v : (v.indexOf(':') >= 0 ? v + '/128' : v + '/32')); });
+  return { name: s.name, mode: sp.mode === 'include' ? 'include' : 'exclude', apps: apps, excluded: excluded, ownDns: lines(s.dns).length > 0 };
 }
 function reconnect() { if (RT.conn === 'off') { connect(); return; } RT.reconnect = true; ask('disconnect'); }
 function errText(code) { return ({ access: t('errAccess'), 'no-service': t('errNoService'), timeout: t('errTimeout') })[code] || t('errOther'); }
@@ -544,6 +590,8 @@ function buildToml(s) {
   var p = S.profiles.filter(function (x) { return x.id === s.profile; })[0] || S.profiles[0];
   var sp = S.split, apps = sp.apps.filter(function (a) { return a.on; }).map(function (a) { return a.path; });
   var ips = sp.ips.filter(function (i) { return i.on; }).map(function (i) { return i.v; });
+  var splitOn = !!sp.on;
+  if (ANDROID) { if (sp.mode === 'include' && apps.length) splitOn = false; apps = []; }
   var excluded = lines(S.set.excluded);
   if (sp.on && sp.mode === 'exclude') ips.forEach(function (v) { if (isPlainNet(v)) excluded.push(v.indexOf('/') > 0 ? v : (v.indexOf(':') >= 0 ? v + '/128' : v + '/32')); });
   return '# Tunnel ' + VERSION + '\n' +
@@ -557,7 +605,7 @@ function buildToml(s) {
     'excluded_routes = ' + arr(excluded) + '\n' +
     'change_system_dns = true\n\n' +
     '[split]\n' +
-    'enabled = ' + !!sp.on + '\n' +
+    'enabled = ' + splitOn + '\n' +
     'mode = ' + q(sp.mode === 'include' ? 'include' : 'exclude') + '\n' +
     'apps = ' + arr(apps) + '\n' +
     'targets = ' + arr(ips) + '\n';
@@ -764,9 +812,9 @@ function renderSplit() {
   var sp = S.split;
   $('view').innerHTML = '<div class="inner"><div class="head"><h2>' + t('split') + '</h2></div>' +
     '<div class="box"><div class="srow"><div><b>' + t('splitOn') + '</b><small>' + t('splitOnD') + '</small></div>' + sw('spOn', sp.on) + '</div>' +
-    '<div class="field"' + (sp.on ? '' : ' style="opacity:.5;pointer-events:none"') + '><span>' + t('splitMode') + '</span><div class="seg" id="spMode"><button type="button" data-v="exclude" aria-pressed="' + (sp.mode === 'exclude') + '">' + t('sExclude') + '</button><button type="button" data-v="include" aria-pressed="' + (sp.mode === 'include') + '">' + t('sInclude') + '</button></div><div class="note">' + (sp.mode === 'exclude' ? t('sExcludeD') : t('sIncludeD') + (sp.apps.some(function (a) { return a.on; }) || sp.ips.some(function (i) { return i.on; }) ? '' : '<br>' + t('splitIncEmpty'))) + '</div></div></div>' +
+    '<div class="field"' + (sp.on ? '' : ' style="opacity:.5;pointer-events:none"') + '><span>' + t('splitMode') + '</span><div class="seg" id="spMode"><button type="button" data-v="exclude" aria-pressed="' + (sp.mode === 'exclude') + '">' + t('sExclude') + '</button><button type="button" data-v="include" aria-pressed="' + (sp.mode === 'include') + '">' + t('sInclude') + '</button></div><div class="note">' + (sp.mode === 'exclude' ? t('sExcludeD') : t('sIncludeD') + (ANDROID ? '<br>' + t('androidIncNote') : '') + (sp.apps.some(function (a) { return a.on; }) || sp.ips.some(function (i) { return i.on; }) ? '' : '<br>' + t('splitIncEmpty'))) + '</div></div></div>' +
     '<div class="two" style="align-items:start' + (sp.on ? '' : ';opacity:.5;pointer-events:none') + '">' +
-      '<div class="box"><div class="head"><span class="eyebrow" style="flex:1">' + t('apps') + ' · ' + sp.apps.length + '</span><button class="btn sm" id="appRun">' + t('fromRunning') + '</button><button class="btn sm primary" id="appAdd">' + IC.plus + t('addApp') + '</button></div>' +
+      '<div class="box"><div class="head"><span class="eyebrow" style="flex:1">' + t('apps') + ' · ' + sp.apps.length + '</span>' + (ANDROID ? '<button class="btn sm primary" id="appRun">' + IC.plus + t('pickApps') + '</button>' : '<button class="btn sm" id="appRun">' + t('fromRunning') + '</button><button class="btn sm primary" id="appAdd">' + IC.plus + t('addApp') + '</button>') + '</div>' +
       '<div class="items" id="appList">' + (sp.apps.length ? sp.apps.map(function (a) { return '<div class="item' + (a.on ? '' : ' off') + '" data-id="' + a.id + '">' + appIco(a.name, a.icon) + '<div class="t"><b>' + esc(a.name) + '</b><small title="' + esc(a.path) + '">' + esc(a.path) + '</small></div>' + sw('ap_' + a.id, a.on) + '<button class="x" data-del aria-label="' + t('del') + '">×</button></div>'; }).join('') : '<div class="empty" style="padding:18px">' + t('appsEmpty') + '</div>') + '</div></div>' +
       '<div class="box"><div class="eyebrow">' + t('ips') + ' · ' + sp.ips.length + '</div>' +
       '<div class="addrow"><input type="text" id="ipIn" class="mono" placeholder="' + t('ipPh') + '" spellcheck="false"><input type="text" id="ipNote" placeholder="' + t('notePh') + '"><button class="btn primary" id="ipAdd">' + t('add') + '</button></div><small id="ipErr" class="bad"></small>' +
@@ -779,7 +827,7 @@ function renderSplit() {
     $(listId).onchange = function (e) { var row = e.target.closest('.item'); if (!row) return; arr.forEach(function (q) { if (q.id === row.dataset.id) q.on = e.target.checked; }); row.classList.toggle('off', !e.target.checked); persist(); };
   }
   listHandlers('appList', sp.apps); listHandlers('ipList', sp.ips);
-  $('appAdd').onclick = function () {
+  if ($('appAdd')) $('appAdd').onclick = function () {
     if (HOST) { ask('pick-exe').then(function (a) { if (a) addApp(a.name, a.path, a.icon); }); return; }
     var fi = $('fileIn'); fi.accept = '.exe'; fi.value = '';
     fi.onchange = function () { var f = fi.files[0]; if (!f) return; addApp(f.name.replace(/\.exe$/i, ''), f.name); };
@@ -796,13 +844,33 @@ function renderSplit() {
   }
   $('ipAdd').onclick = addIp; $('ipIn').onkeydown = $('ipNote').onkeydown = function (e) { if (e.key === 'Enter') addIp(); };
 }
-function addApp(name, path, icon) { var sp = S.split; if (sp.apps.some(function (a) { return a.path.toLowerCase() === path.toLowerCase(); })) return; sp.apps.push({ id: uid(), name: name, path: path, icon: icon || null, on: true }); persist(); render(); }
+function addApp(name, path, icon, quiet) { var sp = S.split; if (sp.apps.some(function (a) { return a.path.toLowerCase() === path.toLowerCase(); })) return; sp.apps.push({ id: uid(), name: name, path: path, icon: icon || null, on: true }); persist(); if (!quiet) render(); }
 function runningDlg() {
   var demo = [['Google Chrome', 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'], ['Discord', 'C:\\Users\\User\\AppData\\Local\\Discord\\app-1.0.9180\\Discord.exe'], ['Firefox', 'C:\\Program Files\\Mozilla Firefox\\firefox.exe'], ['qBittorrent', 'C:\\Program Files\\qBittorrent\\qbittorrent.exe'], ['Steam', 'C:\\Program Files (x86)\\Steam\\steam.exe']].map(function (r) { return { name: r[0], path: r[1] }; });
   (HOST ? ask('running') : Promise.resolve(demo)).then(function (run) {
+    if (ANDROID) { appsDlg(run); return; }
     openDlg(t('running'), '<div class="items">' + (run.length ? run.map(function (r, i) { var has = S.split.apps.some(function (a) { return a.path.toLowerCase() === r.path.toLowerCase(); }); return '<div class="item" style="grid-template-columns:auto minmax(0,1fr) auto">' + appIco(r.name, r.icon) + '<div class="t"><b>' + esc(r.name) + '</b><small>' + esc(r.path) + '</small></div><button class="btn sm" data-i="' + i + '"' + (has ? ' disabled' : '') + '>' + (has ? '✓' : t('pick')) + '</button></div>'; }).join('') : '<div class="empty">—</div>') + '</div>', '<button class="btn" data-close>' + t('close') + '</button>');
     $('dlg').querySelector('.items').onclick = function (e) { var b = e.target.closest('[data-i]'); if (!b) return; var r = run[+b.dataset.i]; addApp(r.name, r.path, r.icon); b.disabled = true; b.textContent = '✓'; };
   });
+}
+
+function appsDlg(all) {
+  openDlg(t('installed'), '<input type="search" id="apQ" placeholder="' + t('searchApps') + '"><div class="items" id="apList"></div>', '<button class="btn primary" data-close>' + t('close') + '</button>');
+  function draw() {
+    var qq = $('apQ').value.toLowerCase();
+    $('apList').innerHTML = all.filter(function (r) { return !qq || (r.name + ' ' + r.path).toLowerCase().indexOf(qq) >= 0; }).slice(0, 300).map(function (r) {
+      var has = S.split.apps.some(function (a) { return a.path === r.path; });
+      return '<label class="item" style="grid-template-columns:auto minmax(0,1fr) auto">' + appIco(r.name, r.icon) + '<div class="t"><b>' + esc(r.name) + '</b><small>' + esc(r.path) + '</small></div><input type="checkbox" data-p="' + esc(r.path) + '"' + (has ? ' checked' : '') + '></label>';
+    }).join('');
+  }
+  $('apQ').oninput = draw; draw();
+  $('apList').onchange = function (e) {
+    var p = e.target.dataset.p; if (!p) return;
+    var r = all.filter(function (x) { return x.path === p; })[0];
+    if (e.target.checked) addApp(r.name, r.path, r.icon, true);
+    else { S.split.apps = S.split.apps.filter(function (a) { return a.path !== p; }); persist(); }
+  };
+  $('dlg').addEventListener('close', function () { if (S.tab === 'split' && !RT.setOpen) render(); }, { once: true });
 }
 
 /* ---------- connection log ---------- */
@@ -832,7 +900,8 @@ function renderSettings() {
       '<div class="srow"><span>' + t('language') + '</span><div class="seg" id="sLang"><button type="button" data-v="ru" aria-pressed="' + (S.lang === 'ru') + '">RU</button><button type="button" data-v="en" aria-pressed="' + (S.lang === 'en') + '">EN</button></div></div>' +
       '<div class="srow"><span>' + t('theme') + '</span><div class="seg" id="sTheme"><button type="button" data-v="dark" aria-pressed="' + (S.theme === 'dark') + '">' + t('dark') + '</button><button type="button" data-v="light" aria-pressed="' + (S.theme === 'light') + '">' + t('light') + '</button></div></div></fieldset>' +
     '<fieldset><legend>' + t('launch') + '</legend>' +
-      chk('sAuto', t('autostart'), st.autostart) + chk('sOpen', t('openWin'), st.openWin, t('openWinD')) + chk('sTray', t('minTray'), st.minTray) +
+      (ANDROID ? '<div class="srow"><span>' + t('alwaysOn') + '<small>' + t('alwaysOnD') + '</small></span><button class="btn sm" id="sAlways" type="button">' + t('openSettings') + '</button></div>'
+        : chk('sAuto', t('autostart'), st.autostart) + chk('sOpen', t('openWin'), st.openWin, t('openWinD')) + chk('sTray', t('minTray'), st.minTray)) +
       chk('sConn', t('autoconnect'), st.autoconnect, S.servers.length ? t('autoconnectD') : t('autoconnectNo')) + '</fieldset>' +
     '<fieldset><legend>' + t('excluded') + '</legend><small class="muted">' + t('excludedD') + '</small><textarea id="sExcl" spellcheck="false">' + esc(st.excluded) + '</textarea><small id="sExclE" class="bad"></small></fieldset>' +
     '<fieldset><legend>' + t('logging') + '</legend>' +
@@ -840,7 +909,7 @@ function renderSettings() {
       '<div class="srow"><span>' + t('sensitive') + '<small>' + t('sensD') + '</small></span><div class="seg" id="sSens"><button type="button" data-v="strip" aria-pressed="' + (st.sensitive === 'strip') + '">' + t('sStrip') + '</button><button type="button" data-v="include" aria-pressed="' + (st.sensitive === 'include') + '">' + t('sInclude2') + '</button></div></div>' +
       '<div class="links"><button class="btn sm" id="sExp">' + t('exportLogs') + '</button><button class="btn sm danger" id="sDelLogs">' + t('delLogs') + '</button></div></fieldset>' +
     '<fieldset><legend>' + t('updates') + '</legend>' + chk('sUpd', t('autoUpd'), st.autoUpd) + '<div class="links"><button class="btn sm" id="sChk">' + t('checkUpd') + '</button>' + (RT.upd && RT.upd.newer ? '<button class="btn sm primary" id="sUpdGet">' + (RT.upd.pct != null ? t('updLoading', RT.upd.pct) : t('updGet')) + '</button><small class="muted" style="align-self:center">' + t('updNew', RT.upd.label || RT.upd.latest) + '</small>' : '') + '</div></fieldset>' +
-    '<fieldset><legend>' + t('about') + '</legend><div class="about"><svg viewBox="0 0 100 100"><use href="#logo"/></svg><div><b style="font-family:var(--f-display);font-size:17px">Tunnel ' + VERSION + '</b> <span class="muted mono" style="font-size:12px">' + RELEASED + '</span><div class="muted">' + t('aboutD') + '</div></div></div>' +
+    '<fieldset><legend>' + t('about') + '</legend><div class="about"><svg viewBox="0 0 100 100"><use href="#logo"/></svg><div><b style="font-family:var(--f-display);font-size:17px">Tunnel ' + VERSION + '</b> <span class="muted mono" style="font-size:12px">' + RELEASED + '</span><div class="muted">' + t(ANDROID ? 'aboutDA' : 'aboutD') + '</div></div></div>' +
       '<small class="muted">' + t('credits') + '</small></fieldset>' +
     '</div>';
   $('setClose').onclick = function () { RT.setOpen = false; render(); };
@@ -848,7 +917,8 @@ function renderSettings() {
   seg('sLang', function (v) { S.lang = v; }); seg('sTheme', function (v) { S.theme = v; });
   seg('sLevel', function (v) { st.level = v; });
   $('sSens').onclick = function (e) { var b = e.target.closest('button'); if (!b || b.dataset.v === st.sensitive) return; if (b.dataset.v === 'strip') { st.sensitive = 'strip'; persist(); render(); } else { st.sensitive = 'include'; persist(); render(); } };
-  [['sAuto', 'autostart'], ['sOpen', 'openWin'], ['sTray', 'minTray'], ['sConn', 'autoconnect'], ['sUpd', 'autoUpd']].forEach(function (p) { $(p[0]).onchange = function () { st[p[1]] = this.checked; persist(); }; });
+  [['sAuto', 'autostart'], ['sOpen', 'openWin'], ['sTray', 'minTray'], ['sConn', 'autoconnect'], ['sUpd', 'autoUpd']].forEach(function (p) { if ($(p[0])) $(p[0]).onchange = function () { st[p[1]] = this.checked; persist(); }; });
+  if ($('sAlways')) $('sAlways').onclick = function () { send('vpn-settings'); };
   $('sExcl').oninput = function () {
     st.excluded = this.value; persist();
     var bad = this.value.split('\n').map(function (l) { return l.trim(); }).filter(function (l) { return l && !/^(\d{1,3}(\.\d{1,3}){3}\/\d{1,2}|[0-9a-f:]+\/\d{1,3})$/i.test(l); });
@@ -879,6 +949,14 @@ function onUpd(m) {
   if (m.type === 'progress' && RT.upd) { RT.upd.pct = m.pct; var b = $('sUpdGet'); if (b) b.textContent = t('updLoading', m.pct); }
   else if (m.type === 'error') { if (RT.upd) RT.upd.pct = null; toast(t('updErr')); if (RT.setOpen) renderSettings(); }
 }
+
+window.tnBack = function () {
+  if ($('dlg').open) { $('dlg').close(); return true; }
+  if ($('ctx')) { closeMenu(); return true; }
+  if (RT.setOpen) { RT.setOpen = false; render(); return true; }
+  if (S && S.tab !== 'servers') { S.tab = 'servers'; persist(); render(); return true; }
+  return false;
+};
 
 /* ---------- start ---------- */
 $('reBtn').onclick = reconnect;

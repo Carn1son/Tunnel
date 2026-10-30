@@ -3,3 +3,9 @@ core/out/
 desktop/bin/
 desktop/obj/
 dist/
+core/src-android/
+core/out-android/
+android/app/libs/*.aar
+android/.gradle/
+android/app/build/
+android/build/
