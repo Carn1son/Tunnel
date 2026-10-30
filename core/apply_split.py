@@ -52,3 +52,19 @@ edit(client,
      "        }\n")
 
 print("apply_split: hook in place")
+
+# Windows: bootstrap_conan_deps.py starts export_conan.sh directly, which only works where .sh files run.
+# Run it through Git's bash instead (not WSL's bash.exe from System32).
+if sys.platform == "win32":
+    boot = root / "scripts" / "bootstrap_conan_deps.py"
+    text = boot.read_text(encoding="utf-8")
+    if "TUNNEL_BASH" not in text:
+        text = text.replace("import sys\n", "import sys\nTUNNEL_BASH = r'C:\\Program Files\\Git\\bin\\bash.exe'\n", 1)
+        text = text.replace('subprocess.run([os.path.join(repo_dir, "scripts", "export_conan.sh")],',
+                            'subprocess.run([TUNNEL_BASH, os.path.join(repo_dir, "scripts", "export_conan.sh").replace(os.sep, "/")],')
+        text = text.replace('subprocess.run([os.path.join("scripts", "export_conan.sh")], check=True)',
+                            'subprocess.run([TUNNEL_BASH, "scripts/export_conan.sh"], check=True)')
+        if text.count("TUNNEL_BASH") != 3:
+            sys.exit("apply_split: bootstrap_conan_deps.py changed, cannot patch the export_conan.sh calls")
+        boot.write_text(text, encoding="utf-8")
+        print("apply_split: export_conan.sh runs through Git bash")
