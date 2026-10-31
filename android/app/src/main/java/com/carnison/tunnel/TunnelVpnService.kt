@@ -30,7 +30,7 @@ class TunnelVpnService : android.net.VpnService() {
         const val ACTION_START = "com.carnison.tunnel.START"
         const val ACTION_STOP = "com.carnison.tunnel.STOP"
         const val ACTION_TOGGLE = "com.carnison.tunnel.TOGGLE"
-        private const val CHANNEL = "vpn"
+        private const val CHANNEL = "vpn-status" // without a badge on the app icon
         private const val NOTIFICATION_ID = 1
         private val ADGUARD_DNS = listOf("46.243.231.30", "46.243.231.31", "2a10:50c0::2:ff", "2a10:50c0::1:ff")
         private const val FAKE_DNS = "198.18.53.53" // the engine answers it with the server's own DNS upstreams
@@ -244,8 +244,10 @@ class TunnelVpnService : android.net.VpnService() {
     // ---- notification
     private fun notification(): Notification {
         val nm = getSystemService(NotificationManager::class.java)
-        if (nm.getNotificationChannel(CHANNEL) == null)
-            nm.createNotificationChannel(NotificationChannel(CHANNEL, "VPN", NotificationManager.IMPORTANCE_LOW))
+        if (nm.getNotificationChannel(CHANNEL) == null) {
+            nm.deleteNotificationChannel("vpn") // the old channel showed a dot on the app icon
+            nm.createNotificationChannel(NotificationChannel(CHANNEL, "VPN", NotificationManager.IMPORTANCE_LOW).apply { setShowBadge(false) })
+        }
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         val stop = PendingIntent.getService(this, 1, Intent(this, TunnelVpnService::class.java).setAction(ACTION_STOP), PendingIntent.FLAG_IMMUTABLE)
         val en = Vpn.prefs(this).getString("lang", "ru") == "en"

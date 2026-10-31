@@ -68,8 +68,8 @@ class TunnelTile : TileService() {
 
     private fun draw() {
         val t = qsTile ?: return
-        // off: dim, on: lit, connecting: half-lit (as in AmneziaVPN) with the icon filling up
-        t.state = when { Vpn.state == Vpn.CONNECTED -> Tile.STATE_ACTIVE; Vpn.state == Vpn.DISCONNECTED -> Tile.STATE_INACTIVE; else -> Tile.STATE_UNAVAILABLE }
+        // off: dim, on: lit, connecting: dim with the icon filling up; still tappable, so a tap cancels the connection
+        t.state = when { Vpn.state == Vpn.CONNECTED -> Tile.STATE_ACTIVE; Vpn.state == Vpn.DISCONNECTED -> Tile.STATE_INACTIVE; else -> Tile.STATE_INACTIVE }
         t.icon = if (connecting()) aquarium() else android.graphics.drawable.Icon.createWithResource(this, R.drawable.ic_tile)
         t.label = "Tunnel"
         if (Build.VERSION.SDK_INT >= 29) t.subtitle = if (Vpn.state == Vpn.CONNECTED) Vpn.lastServerName(this) else Vpn.statusText(this)
