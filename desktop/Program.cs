@@ -358,6 +358,7 @@ namespace Tunnel
                             Reply(req, dir); break;
                         }
                     case "logs-clear": Core.ClearLogs(); Reply(req, true); break;
+                    case "traffic": Reply(req, await Task.Run(() => Traffic())); break;
                     case "upd-check": Reply(req, await updater.Check()); break;
                     case "upd-download": Reply(req, await updater.Download()); break;
                     case "upd-install": if (updater.Install()) Quit(false); break;
@@ -385,8 +386,36 @@ namespace Tunnel
         }
 
         // ---------- VPN state, connection log
+        // traffic of the current session: counters of the TrustTunnel (Wintun) adapter since it connected
+        DateTime sessSince = DateTime.MinValue; long baseRx, baseTx;
+        static System.Net.NetworkInformation.NetworkInterface TunAdapter()
+        {
+            try
+            {
+                foreach (var n in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
+                    if ((n.Name + " " + n.Description).IndexOf("TrustTunnel", StringComparison.OrdinalIgnoreCase) >= 0 && n.OperationalStatus == System.Net.NetworkInformation.OperationalStatus.Up) return n;
+            }
+            catch { }
+            return null;
+        }
+        static void TunBytes(out long rx, out long tx)
+        {
+            rx = tx = 0;
+            var n = TunAdapter(); if (n == null) return;
+            try { var st = n.GetIPStatistics(); rx = st.BytesReceived; tx = st.BytesSent; } catch { }
+        }
+        object Traffic()
+        {
+            if (vpnState != Core.Connected) { sessSince = DateTime.MinValue; return new Dictionary<string, object> { { "on", false } }; }
+            long rx, tx; TunBytes(out rx, out tx);
+            if (sessSince == DateTime.MinValue || rx < baseRx || tx < baseTx) { sessSince = sessSince == DateTime.MinValue ? DateTime.UtcNow : sessSince; baseRx = rx; baseTx = tx; }
+            return new Dictionary<string, object> { { "on", true }, { "since", (long)(sessSince - new DateTime(1970, 1, 1)).TotalMilliseconds }, { "rx", rx - baseRx }, { "tx", tx - baseTx } };
+        }
+
         void OnState(int st)
         {
+            if (st == Core.Connected && vpnState != Core.Connected) { sessSince = DateTime.UtcNow; TunBytes(out baseRx, out baseTx); }
+            if (st != Core.Connected) sessSince = DateTime.MinValue;
             vpnState = st;
             tray.Icon = st == Core.Connected ? icoOn : icoOff;
             tray.Text = "Tunnel — " + (st == Core.Connected ? T("подключено", "connected") : st == Core.Disconnected ? T("отключено", "disconnected") : T("подключение…", "connecting…"));

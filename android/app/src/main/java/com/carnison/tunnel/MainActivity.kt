@@ -215,6 +215,7 @@ class MainActivity : Activity() {
             "logs-clear" -> { runCatching { com.adguard.trusttunnel.VpnService.clearLogs() }; Vpn.clearRecent(); reply(req, true) }
             "vpn-settings" -> runCatching { startActivity(Intent(Settings.ACTION_VPN_SETTINGS)) }
             "open-url" -> runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(m.optString("url")))) }
+            "traffic" -> reply(req, Vpn.traffic())
             "upd-check" -> io.execute { reply(req, checkUpdate()) }
             "upd-download" -> io.execute { reply(req, downloadUpdate()) }
             "upd-install" -> installUpdate()
