@@ -9,7 +9,6 @@ import android.content.pm.ServiceInfo
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
-import android.net.NetworkRequest
 import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.system.OsConstants
@@ -26,7 +25,7 @@ import java.util.concurrent.Executors
  * The VPN: a TUN interface from Android (with the per-app split) and AdGuard's TrustTunnel engine on top of it.
  * The engine gets the same TOML as on Windows; IP split rules are applied inside the engine by the Tunnel hook.
  */
-class TunnelVpnService : android.net.VpnService(), VpnClientListener {
+class TunnelVpnService : android.net.VpnService() {
     companion object {
         const val ACTION_START = "com.carnison.tunnel.START"
         const val ACTION_STOP = "com.carnison.tunnel.STOP"
@@ -44,6 +43,12 @@ class TunnelVpnService : android.net.VpnService(), VpnClientListener {
     private var verifier: CertificateVerificator? = null
     private var netCallback: ConnectivityManager.NetworkCallback? = null
     private var running = false
+    @Volatile private var gen = 0          // engine generation: callbacks of a stopped engine are ignored
+    @Volatile private var stopping = false // set while an engine is being stopped on purpose
+    @Volatile private var network: Network? = null   // the physical network the tunnel runs over
+    private val main = android.os.Handler(android.os.Looper.getMainLooper())
+    private var lostCheck: Runnable? = null
+    @Volatile private var lastDns: Pair<List<String>, List<String>?>? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startInForeground()
@@ -73,7 +78,8 @@ class TunnelVpnService : android.net.VpnService(), VpnClientListener {
             verifier = CertificateVerificator()
             val fd = buildTun(extra) ?: throw IllegalStateException("TUN interface was not created")
             tun = fd
-            val c = VpnClient(toml, this)
+            gen++
+            val c = VpnClient(toml, Engine(gen))
             client = c
             running = true
             watchNetwork()
@@ -117,24 +123,56 @@ class TunnelVpnService : android.net.VpnService(), VpnClientListener {
         return b.establish()
     }
 
+    /**
+     * Follows the default physical network (Tunnel itself is outside the VPN, so its default network is the real one).
+     * The engine is told only about real changes: a switch to another network (Wi-Fi <-> mobile) or losing the network
+     * for good. Extra networks appearing and going (mobile data next to Wi-Fi, the first callback right after
+     * registration) no longer make it drop a working connection and reconnect.
+     */
     private fun watchNetwork() {
         val cm = getSystemService(ConnectivityManager::class.java)
-        val req = NetworkRequest.Builder()
-            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-            .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
-            .build()
+        network = null
         val cb = object : ConnectivityManager.NetworkCallback() {
-            override fun onAvailable(network: Network) { worker.execute { client?.notifyNetworkChange(true) } }
-            override fun onLost(network: Network) { worker.execute { client?.notifyNetworkChange(false) } }
+            override fun onAvailable(n: Network) {
+                main.post {
+                    lostCheck?.let { main.removeCallbacks(it) }; lostCheck = null
+                    val was = network
+                    network = n
+                    runCatching { setUnderlyingNetworks(arrayOf(n)) }
+                    if (was != null && was != n) worker.execute { if (!stopping) client?.notifyNetworkChange(true) }
+                }
+            }
+            override fun onLinkPropertiesChanged(n: Network, lp: android.net.LinkProperties) {
+                // DNS of the real network, for the engine's own lookups (as in AdGuard's TrustTunnel app)
+                val servers = com.adguard.trusttunnel.utils.NetworkUtils.getSystemDnsWithFallbacks(lp).toList()
+                val priv = com.adguard.trusttunnel.utils.NetworkUtils.getPrivateDns(lp)?.toList()
+                val dns = if (priv != null) priv to servers else servers to null
+                if (dns != lastDns) { lastDns = dns; runCatching { VpnClient.setSystemDnsServers(dns.first, dns.second) } }
+            }
+            override fun onLost(n: Network) {
+                main.post {
+                    if (n != network) return@post
+                    // a switch usually brings onAvailable of the new network right away: wait a moment before giving up
+                    val r = Runnable {
+                        lostCheck = null
+                        if (network == n) { network = null; worker.execute { if (!stopping) client?.notifyNetworkChange(false) } }
+                    }
+                    lostCheck = r; main.postDelayed(r, 2000)
+                }
+            }
         }
-        runCatching { cm.registerNetworkCallback(req, cb); netCallback = cb }
+        runCatching { cm.registerDefaultNetworkCallback(cb); netCallback = cb }
     }
 
     private fun closeEngine() {
         netCallback?.let { cb -> runCatching { getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(cb) } }
         netCallback = null
+        main.post { lostCheck?.let { main.removeCallbacks(it) }; lostCheck = null }
+        stopping = true
+        gen++
         client?.let { runCatching { it.stop() }; runCatching { it.close() } }
         client = null
+        stopping = false
         runCatching { tun?.close() }
         tun = null
         running = false
@@ -154,22 +192,25 @@ class TunnelVpnService : android.net.VpnService(), VpnClientListener {
         super.onDestroy()
     }
 
-    // ---- engine callbacks
-    override fun protectSocket(socket: Int): Boolean = protect(socket)
-
-    override fun verifyCertificate(certificate: ByteArray?, rawChain: List<ByteArray?>?): Boolean =
-        verifier?.verifyCertificate(certificate, rawChain) ?: false
-
-    override fun onStateChanged(state: Int) {
-        Vpn.setState(state)
-        updateNotification()
-        if (state == Vpn.DISCONNECTED && running) worker.execute { if (running) close() }
-    }
-
-    override fun onConnectionInfo(info: String) {
-        val j = runCatching { JSONObject(info) }.getOrNull() ?: return
-        ownerOf(j)?.let { (label, pkg) -> j.put("app", label); j.put("path", pkg) }
-        Vpn.connection(j)
+    // ---- engine callbacks: each engine gets its own listener, so a stopped or replaced engine
+    // reporting DISCONNECTED late never closes the one that runs now
+    private inner class Engine(val g: Int) : VpnClientListener {
+        private fun live() = g == gen && !stopping
+        override fun protectSocket(socket: Int): Boolean = protect(socket)
+        override fun verifyCertificate(certificate: ByteArray?, rawChain: List<ByteArray?>?): Boolean =
+            verifier?.verifyCertificate(certificate, rawChain) ?: false
+        override fun onStateChanged(state: Int) {
+            if (!live()) return
+            Vpn.setState(state)
+            updateNotification()
+            if (state == Vpn.DISCONNECTED) worker.execute { if (running && g == gen) close() }
+        }
+        override fun onConnectionInfo(info: String) {
+            if (g != gen) return
+            val j = runCatching { JSONObject(info) }.getOrNull() ?: return
+            ownerOf(j)?.let { (label, pkg) -> j.put("app", label); j.put("path", pkg) }
+            Vpn.connection(j)
+        }
     }
 
     /** The app that owns a connection, asked while it is still open (Android tells this only to the active VPN app). */
