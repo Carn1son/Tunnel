@@ -238,7 +238,7 @@ details.adv[open] > div { display: grid; gap: 11px; margin-top: 8px; }
   .stats b { font-size: 15px; }
   #srvList { flex: 1; min-height: 0; overflow: auto; align-content: start; }
   /* routing */
-  .rgrid { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+  .rgrid { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
   .profbox { display: flex; align-items: center; gap: 6px; padding: 6px !important; }
   .profbox .eyebrow { display: none; }
   #profList { display: flex; gap: 6px; overflow-x: auto; flex: 1; min-width: 0; scrollbar-width: none; }
@@ -252,7 +252,7 @@ details.adv[open] > div { display: grid; gap: 11px; margin-top: 8px; }
   .splittop { gap: 8px; }
   .splittop .srow small { display: none; }
   .subtabs { display: flex !important; }
-  .splitcols { flex: 1; min-height: 0; display: flex !important; flex-direction: column; }
+  .splitcols { flex: 1; min-height: 0; display: flex !important; flex-direction: column; align-items: stretch !important; }
   .splitcols.show-apps .col-ips, .splitcols.show-ips .col-apps { display: none; }
   .splitcols .box { flex: 1; min-height: 0; display: flex; flex-direction: column; }
   .splitcols .box > .eyebrow { display: none; }
@@ -508,14 +508,14 @@ var TABS = ['servers', 'routing', 'split', 'log'];
 /* ---------- shell ---------- */
 function renderShell() {
   document.documentElement.dataset.ui = S.theme; document.documentElement.lang = S.lang;
-  $('rail').innerHTML = TABS.map(function (k) { return '<button class="tab" role="tab" type="button" data-tab="' + k + '" aria-selected="' + (S.tab === k) + '">' + IC[k] + '<span class="lf">' + t(k) + '</span><span class="ls">' + t(k + 'S') + '</span></button>'; }).join('') + '<div class="ver">Tunnel ' + VERSION + '</div>';
+  $('rail').innerHTML = TABS.map(function (k) { return '<button class="tab" role="tab" type="button" data-tab="' + k + '" aria-selected="' + (S.tab === k) + '">' + IC[k] + '<span class="lf">' + t(k) + '</span><span class="ls">' + t(k + 'S') + '</span></button>'; }).join('') + '';
   $('uiBtn').innerHTML = S.theme === 'dark' ? IC.sun : IC.moon; $('uiBtn').title = t('theme');
   $('setBtn').title = t('settings'); $('setBtn').setAttribute('aria-pressed', String(RT.setOpen));
   renderStatus();
 }
 function renderStatus() {
   var el = $('status'); el.className = 'status' + (RT.conn === 'on' ? ' on' : RT.conn === 'wait' ? ' wait' : '');
-  var s = cur(); $('statusTxt').textContent = t('st_' + RT.conn) + (RT.conn !== 'off' && s ? ' · ' + s.name : '');
+  var s = cur(); $('statusTxt').textContent = t('st_' + RT.conn); $('status').title = s ? s.name : '';
   var stale = HOST && RT.conn === 'on' && s && RT.toml && buildToml(s) !== RT.toml;
   $('reBtn').hidden = !stale; $('reBtn').title = t('reconnectD'); $('reBtn').innerHTML = '↻<span class="rl"> ' + t('reconnect') + '</span>';
   document.documentElement.style.setProperty('--logoacc', RT.conn === 'on' ? 'var(--accent)' : RT.conn === 'wait' ? 'var(--warn)' : 'var(--off)');
@@ -951,7 +951,7 @@ function renderSettings() {
   $('setPane').innerHTML = '<div class="sethead"><b>' + t('settings') + '</b><button class="btn" id="setClose" title="Esc">✕</button></div><div class="setbody">' +
     '<fieldset><legend>' + t('general') + '</legend>' +
       '<div class="srow"><span>' + t('language') + '</span><div class="seg" id="sLang"><button type="button" data-v="ru" aria-pressed="' + (S.lang === 'ru') + '">RU</button><button type="button" data-v="en" aria-pressed="' + (S.lang === 'en') + '">EN</button></div></div>' +
-      '<div class="srow"><span>' + t('theme') + '</span><div class="seg" id="sTheme"><button type="button" data-v="dark" aria-pressed="' + (S.theme === 'dark') + '">' + t('dark') + '</button><button type="button" data-v="light" aria-pressed="' + (S.theme === 'light') + '">' + t('light') + '</button></div></div></fieldset>' +
+      '</fieldset>' +
     '<fieldset><legend>' + t('launch') + '</legend>' +
       (ANDROID ? '<div class="srow"><span>' + t('alwaysOn') + '<small>' + t('alwaysOnD') + '</small></span><button class="btn sm" id="sAlways" type="button">' + t('openSettings') + '</button></div>'
         : chk('sAuto', t('autostart'), st.autostart) + chk('sOpen', t('openWin'), st.openWin, t('openWinD')) + chk('sTray', t('minTray'), st.minTray)) +
@@ -962,12 +962,12 @@ function renderSettings() {
       '<div class="srow"><span>' + t('sensitive') + '<small>' + t('sensD') + '</small></span><div class="seg" id="sSens"><button type="button" data-v="strip" aria-pressed="' + (st.sensitive === 'strip') + '">' + t('sStrip') + '</button><button type="button" data-v="include" aria-pressed="' + (st.sensitive === 'include') + '">' + t('sInclude2') + '</button></div></div>' +
       '<div class="links"><button class="btn sm" id="sExp">' + t('exportLogs') + '</button><button class="btn sm danger" id="sDelLogs">' + t('delLogs') + '</button></div></fieldset>' +
     '<fieldset><legend>' + t('updates') + '</legend>' + chk('sUpd', t('autoUpd'), st.autoUpd) + '<div class="links"><button class="btn sm" id="sChk">' + t('checkUpd') + '</button>' + (RT.upd && RT.upd.newer ? '<button class="btn sm primary" id="sUpdGet">' + (RT.upd.pct != null ? t('updLoading', RT.upd.pct) : t('updGet')) + '</button><small class="muted" style="align-self:center">' + t('updNew', RT.upd.label || RT.upd.latest) + '</small>' : '') + '</div></fieldset>' +
-    '<fieldset><legend>' + t('about') + '</legend><div class="about"><svg viewBox="0 0 100 100"><use href="#logo"/></svg><div><b style="font-family:var(--f-display);font-size:17px">Tunnel ' + VERSION + '</b> <span class="muted mono" style="font-size:12px">' + RELEASED + '</span><div class="muted">' + t(ANDROID ? 'aboutDA' : 'aboutD') + '</div></div></div>' +
+    '<fieldset><legend>' + t('about') + '</legend><div class="about"><svg viewBox="0 0 100 100"><use href="#logo"/></svg><div><b style="font-family:var(--f-display);font-size:17px">Tunnel ' + VERSION + '</b><span class="muted mono" style="font-size:12px;margin-left:12px">' + RELEASED + '</span><div class="muted">' + t(ANDROID ? 'aboutDA' : 'aboutD') + '</div></div></div>' +
       '<small class="muted">' + t('credits') + '</small></fieldset>' +
     '</div>';
   $('setClose').onclick = function () { RT.setOpen = false; render(); };
   function seg(id, fn) { $(id).onclick = function (e) { var b = e.target.closest('button'); if (b) { fn(b.dataset.v); persist(); render(); } }; }
-  seg('sLang', function (v) { S.lang = v; }); seg('sTheme', function (v) { S.theme = v; });
+  seg('sLang', function (v) { S.lang = v; });
   seg('sLevel', function (v) { st.level = v; });
   $('sSens').onclick = function (e) { var b = e.target.closest('button'); if (!b || b.dataset.v === st.sensitive) return; if (b.dataset.v === 'strip') { st.sensitive = 'strip'; persist(); render(); } else { st.sensitive = 'include'; persist(); render(); } };
   [['sAuto', 'autostart'], ['sOpen', 'openWin'], ['sTray', 'minTray'], ['sConn', 'autoconnect'], ['sUpd', 'autoUpd']].forEach(function (p) { if ($(p[0])) $(p[0]).onchange = function () { st[p[1]] = this.checked; persist(); }; });
