@@ -148,6 +148,8 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px
 .x { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 18px; line-height: 1; padding: 2px 6px; border-radius: 4px; }
 .x:hover { color: var(--err); }
 .addrow { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto; gap: 8px; }
+.updln { font-size: 12.5px; margin: 2px 0 6px; } .updln .ok { color: var(--accent); } .updln .bad { color: var(--err); }
+.bar { height: 4px; border-radius: 2px; background: var(--line); margin-top: 6px; overflow: hidden; } .bar i { display: block; height: 100%; background: var(--accent); }
 .note.warn { border-left-color: var(--warn); background: color-mix(in srgb, var(--warn) 8%, transparent); color: var(--fg); }
 .note { font-size: 12px; color: var(--muted); padding: 8px 10px; border-left: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 6%, transparent); border-radius: 0 6px 6px 0; }
 
@@ -343,7 +345,7 @@ var L = {
   colTime: 'Время', colApp: 'Приложение', colProto: 'Прот.', colDst: 'Назначение', colRoute: 'Маршрут', colRule: 'Правило',
   rVpn: 'VPN', rByp: 'напрямую', rRej: 'отклонено', reconnect: 'Переподключить', reconnectD: 'Настройки изменились — переподключитесь, чтобы применить',
   errAccess: 'Нет доступа к службе Tunnel', errNoService: 'Служба Tunnel не установлена — переустановите приложение', errTimeout: 'Служба Tunnel не ответила вовремя', errOther: 'Не удалось подключиться, подробности в логах', badLink: 'Не удалось разобрать ссылку',
-  updNew: 'Доступна версия {0}', updGet: 'Скачать и установить', updLoading: 'Загрузка… {0}%', updErr: 'Не удалось проверить обновления', updInstall: 'Установить',
+  updChecking: 'Проверяю…', updAvail: 'Есть обновление: {0}', updReady: 'Обновление загружено.', updInstalling: 'Открываю установщик…', updFail: 'Не получилось: {0}', updNow: 'Обновить', updNew: 'Доступна версия {0}', updGet: 'Скачать и установить', updLoading: 'Загрузка… {0}%', updErr: 'Не удалось проверить обновления', updInstall: 'Установить',
   splitIncEmpty: 'В режиме «только выбранное» без отмеченных приложений и адресов весь трафик пойдёт напрямую.', fpDefault: 'Без имитации',
   general: 'Общие', language: 'Язык', theme: 'Оформление', dark: 'Тёмное', light: 'Светлое',
   launch: 'Запуск и подключение', autostart: 'Запускать вместе с Windows', openWin: 'Открывать окно при запуске', openWinD: 'Иначе приложение стартует свёрнутым в трей',
@@ -388,7 +390,7 @@ var L = {
   colTime: 'Time', colApp: 'App', colProto: 'Proto', colDst: 'Destination', colRoute: 'Route', colRule: 'Rule',
   rVpn: 'VPN', rByp: 'direct', rRej: 'rejected', reconnect: 'Reconnect', reconnectD: 'Settings changed — reconnect to apply them',
   errAccess: 'No access to the Tunnel service', errNoService: 'The Tunnel service is not installed — reinstall the app', errTimeout: 'The Tunnel service did not answer in time', errOther: 'Could not connect, see the logs', badLink: 'Could not decode the link',
-  updNew: 'Version {0} is available', updGet: 'Download and install', updLoading: 'Downloading… {0}%', updErr: 'Could not check for updates', updInstall: 'Install',
+  updChecking: 'Checking…', updAvail: 'Update available: {0}', updReady: 'Update downloaded.', updInstalling: 'Opening the installer…', updFail: 'Failed: {0}', updNow: 'Update', updNew: 'Version {0} is available', updGet: 'Download and install', updLoading: 'Downloading… {0}%', updErr: 'Could not check for updates', updInstall: 'Install',
   splitIncEmpty: 'In “only selected” mode with nothing checked all traffic goes direct.', fpDefault: 'No mimicry',
   general: 'General', language: 'Language', theme: 'Theme', dark: 'Dark', light: 'Light',
   launch: 'Launch and connection', autostart: 'Launch with Windows', openWin: 'Open window on launch', openWinD: 'Otherwise the app starts minimised to tray',
@@ -961,7 +963,7 @@ function renderSettings() {
       '<div class="srow"><span>' + t('level') + '<small>' + (st.level === 'debug' ? t('lvDebugD') : '') + '</small></span><div class="seg" id="sLevel"><button type="button" data-v="basic" aria-pressed="' + (st.level === 'basic') + '">' + t('lvBasic') + '</button><button type="button" data-v="debug" aria-pressed="' + (st.level === 'debug') + '">' + t('lvDebug') + '</button></div></div>' +
       '<div class="srow"><span>' + t('sensitive') + '<small>' + t('sensD') + '</small></span><div class="seg" id="sSens"><button type="button" data-v="strip" aria-pressed="' + (st.sensitive === 'strip') + '">' + t('sStrip') + '</button><button type="button" data-v="include" aria-pressed="' + (st.sensitive === 'include') + '">' + t('sInclude2') + '</button></div></div>' +
       '<div class="links"><button class="btn sm" id="sExp">' + t('exportLogs') + '</button><button class="btn sm danger" id="sDelLogs">' + t('delLogs') + '</button></div></fieldset>' +
-    '<fieldset><legend>' + t('updates') + '</legend>' + chk('sUpd', t('autoUpd'), st.autoUpd) + '<div class="links"><button class="btn sm" id="sChk">' + t('checkUpd') + '</button>' + (RT.upd && RT.upd.newer ? '<button class="btn sm primary" id="sUpdGet">' + (RT.upd.pct != null ? t('updLoading', RT.upd.pct) : t('updGet')) + '</button><small class="muted" style="align-self:center">' + t('updNew', RT.upd.label || RT.upd.latest) + '</small>' : '') + '</div></fieldset>' +
+    '<fieldset><legend>' + t('updates') + '</legend>' + chk('sUpd', t('autoUpd'), st.autoUpd) + '<div id="updBox">' + updHtml() + '</div></fieldset>' +
     '<fieldset><legend>' + t('about') + '</legend><div class="about"><svg viewBox="0 0 100 100"><use href="#logo"/></svg><div><b style="font-family:var(--f-display);font-size:17px">Tunnel ' + VERSION + '</b><span class="muted mono" style="font-size:12px;margin-left:12px">' + RELEASED + '</span><div class="muted">' + t(ANDROID ? 'aboutDA' : 'aboutD') + '</div></div></div>' +
       '<small class="muted">' + t('credits') + '</small></fieldset>' +
     '</div>';
@@ -979,37 +981,41 @@ function renderSettings() {
   };
   $('sExp').onclick = function () { (HOST ? ask('logs-export') : Promise.resolve()).then(function () { toast(t('logsExported')); }); };
   $('sDelLogs').onclick = function () { confirmDlg(t('delLogs') + '?', '', t('del'), function () { (HOST ? ask('logs-clear') : Promise.resolve()).then(function () { toast(t('logsDeleted')); }); }); };
-  $('sChk').onclick = function () { checkUpd(true); };
-  if ($('sUpdGet')) $('sUpdGet').onclick = getUpd;
+  $('updBox').onclick = function (e) { var b = e.target.closest('[data-upd]'); if (!b) return; if (b.dataset.upd === 'check') checkUpd(); else if (b.dataset.upd === 'go') getUpd(); };
 }
 
 /* ---------- updates ---------- */
-function checkUpd(manual) {
-  if (!HOST) { if (manual) toast(t('upToDate')); return; }
+// the state is shown in Settings next to the button, as in BoardV and 3DViewer
+function updHtml() {
+  var u = RT.upd || { st: 'idle' }, h = '', go = false, busy = false;
+  if (u.st === 'checking') { h = t('updChecking'); busy = true; }
+  else if (u.st === 'none') h = '<span class="ok">' + t('upToDate') + '</span>';
+  else if (u.st === 'available') { h = t('updAvail', u.label || u.latest); go = true; }
+  else if (u.st === 'downloading') { h = t('updLoading', u.pct || 0) + '<div class="bar"><i style="width:' + (u.pct || 0) + '%"></i></div>'; busy = true; }
+  else if (u.st === 'installing') { h = t('updInstalling'); busy = true; }
+  else if (u.st === 'error') h = '<span class="bad">' + t('updFail', u.msg || '') + '</span>';
+  return (h ? '<div class="updln">' + h + '</div>' : '') + '<div class="links">' +
+    (go ? '<button class="btn sm primary" type="button" data-upd="go">' + t('updNow') + '</button>' : '') +
+    (busy ? '' : '<button class="btn sm" type="button" data-upd="check">' + t('checkUpd') + '</button>') + '</div>';
+}
+function updSet(st, extra) { RT.upd = RT.upd || {}; RT.upd.st = st; if (extra) Object.keys(extra).forEach(function (k) { RT.upd[k] = extra[k]; }); var b = $('updBox'); if (b) b.innerHTML = updHtml(); }
+function checkUpd(auto) {
+  if (!HOST) { updSet('none'); return; }
+  if (!auto) updSet('checking');
   ask('upd-check').then(function (r) {
-    if (r.error) { if (manual) toast(t('updErr')); return; }
-    RT.upd = r.newer ? { newer: true, latest: r.latest, label: r.label } : null;
-    if (r.newer) toast(t('updNew', r.label || r.latest)); else if (manual) toast(t('upToDate'));
-    if (RT.setOpen) renderSettings();
-  });
+    if (r.error) { if (!auto) updSet('error', { msg: r.error }); return; }
+    if (r.newer) updSet('available', { latest: r.latest, label: r.label });
+    else if (!auto) updSet('none');
+  }, function (e) { if (!auto) updSet('error', { msg: e.message }); });
 }
 function getUpd() {
-  if (!RT.upd || RT.upd.pct != null) return;
-  RT.upd.pct = 0; renderSettings();
-  ask('upd-download').then(function (ok) { if (ok) send('upd-install'); else { RT.upd.pct = null; renderSettings(); } });
+  updSet('downloading', { pct: 0 });
+  ask('upd-download').then(function (ok) { if (ok) { updSet('installing'); send('upd-install'); } });
 }
 function onUpd(m) {
-  if (m.type === 'progress' && RT.upd) { RT.upd.pct = m.pct; var b = $('sUpdGet'); if (b) b.textContent = t('updLoading', m.pct); }
-  else if (m.type === 'error') { if (RT.upd) RT.upd.pct = null; toast(t('updErr')); if (RT.setOpen) renderSettings(); }
+  if (m.type === 'progress') updSet('downloading', { pct: m.pct });
+  else if (m.type === 'error') updSet('error', { msg: m.msg || '' });
 }
-
-window.tnBack = function () {
-  if ($('dlg').open) { $('dlg').close(); return true; }
-  if ($('ctx')) { closeMenu(); return true; }
-  if (RT.setOpen) { RT.setOpen = false; render(); return true; }
-  if (S && S.tab !== 'servers') { S.tab = 'servers'; persist(); render(); return true; }
-  return false;
-};
 
 /* ---------- start ---------- */
 $('reBtn').onclick = reconnect;
@@ -1021,7 +1027,7 @@ if (HOST) {
     onVpnState(r.vpn);
     if (r.link) importDlg(r.link);
     if (S.set.autoconnect && RT.conn === 'off' && cur()) connect();
-    if (S.set.autoUpd) setTimeout(function () { checkUpd(false); }, 4000);
+    if (S.set.autoUpd) setTimeout(function () { checkUpd(true); }, 4000);
   });
 } else {
   try { S = JSON.parse(localStorage.getItem('tunnel.ui') || 'null'); } catch (e) { S = null; }
