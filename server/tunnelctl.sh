@@ -109,8 +109,9 @@ cmd_status() {
   os=$(. /etc/os-release 2>/dev/null && printf '%s' "$PRETTY_NAME"); arch=$(uname -m)
   p443=false; if command -v ss >/dev/null 2>&1 && ss -ltnH 2>/dev/null | awk '{print $4}' | grep -Eq '[:.]443$'; then p443=true; fi
   root=false; [ "$(id -u)" = 0 ] && root=true
-  printf '{"installed":%s,"configured":%s,"running":%s,"version":%s,"listen":%s,"hostname":%s,"users":%s,"metrics":%s,"timer":%s,"load":%s,"cpus":%s,"memTotal":%s,"memAvail":%s,"uptime":%s,"os":%s,"arch":%s,"port443busy":%s,"root":%s,"dir":%s}\n' \
-    "$installed" "$configured" "$running" "$(js "$version")" "$(js "$listen")" "$(js "$host")" "${users:-0}" "$metrics" "$timer" \
+  site=false; site_on_toml && site=true
+  printf '{"site":%s,"installed":%s,"configured":%s,"running":%s,"version":%s,"listen":%s,"hostname":%s,"users":%s,"metrics":%s,"timer":%s,"load":%s,"cpus":%s,"memTotal":%s,"memAvail":%s,"uptime":%s,"os":%s,"arch":%s,"port443busy":%s,"root":%s,"dir":%s}\n' \
+    "$site" "$installed" "$configured" "$running" "$(js "$version")" "$(js "$listen")" "$(js "$host")" "${users:-0}" "$metrics" "$timer" \
     "${load:-0}" "${cpus:-1}" "${memt:-0}" "${mema:-0}" "${up:-0}" "$(js "$os")" "$(js "$arch")" "$p443" "$root" "$(js "$DIR")"
 }
 
@@ -211,6 +212,101 @@ open_port() { # port
   fi
 }
 
+# ---------- cover site: what anyone who is not a VPN client sees on the TrustTunnel port
+# TrustTunnel passes every request that is not a tunnel to [reverse_proxy]; a tiny local web server answers
+# like an ordinary site (nginx-looking headers and error pages). It listens on 127.0.0.1 only, never outside.
+SITE_DIR="/var/lib/tunnel-site"
+SITE_PORT="18080"
+SITE_URL="https://raw.githubusercontent.com/Carn1son/Tunnel/main/site/index.html"
+SITE_MARK="# tunnel-site"
+
+site_on_toml() { grep -q "^$SITE_MARK" "$DIR/vpn.toml" 2>/dev/null; }
+
+site_off_toml() { # drop our block: the marker line and the [reverse_proxy] table right after it
+  awk -v m="$SITE_MARK" '
+    $0 == m { skip = 1; next }
+    skip && /^[[:space:]]*\[reverse_proxy\]/ { next }
+    skip && /^[[:space:]]*(server_address|path_mask|h3_backward_compatibility)[[:space:]]*=/ { next }
+    skip && /^[[:space:]]*$/ { next }
+    { skip = 0; print }
+  ' "$DIR/vpn.toml" > "$DIR/vpn.toml.tmp" && mv "$DIR/vpn.toml.tmp" "$DIR/vpn.toml"
+}
+
+cmd_site_on() {
+  need_root
+  [ -f "$DIR/vpn.toml" ] || die "TrustTunnel is not installed"
+  if grep -q '^[[:space:]]*\[reverse_proxy\]' "$DIR/vpn.toml" && ! site_on_toml; then die "vpn.toml already has its own [reverse_proxy] section"; fi
+  command -v python3 >/dev/null 2>&1 || { DEBIAN_FRONTEND=noninteractive apt-get install -y -qq python3-minimal >/dev/null 2>&1 || true; }
+  command -v python3 >/dev/null 2>&1 || die "python3 is needed for the site"
+  if command -v ss >/dev/null 2>&1 && ss -ltnH 2>/dev/null | awk '{print $4}' | grep -q "[:.]$SITE_PORT\$" && ! systemctl is-active --quiet tunnel-site 2>/dev/null; then
+    die "port $SITE_PORT is busy on this server"
+  fi
+  mkdir -p "$SITE_DIR/www"
+  { fetch "$SITE_URL" 30 > "$SITE_DIR/www/index.html.new" && [ -s "$SITE_DIR/www/index.html.new" ]; } || die "could not download the page from GitHub"
+  mv "$SITE_DIR/www/index.html.new" "$SITE_DIR/www/index.html"
+  cat > "$SITE_DIR/serve.py" <<'PYEND'
+import http.server, os, sys
+class H(http.server.SimpleHTTPRequestHandler):
+    server_version = "nginx"
+    protocol_version = "HTTP/1.1"
+    def send_error(self, code, message=None, explain=None): super().send_error(code, None, None)
+    error_message_format = "<html>\r\n<head><title>%(code)d %(message)s</title></head>\r\n<body>\r\n<center><h1>%(code)d %(message)s</h1></center>\r\n<hr><center>nginx</center>\r\n</body>\r\n</html>\r\n"
+    def version_string(self): return "nginx"
+    def list_directory(self, path): self.send_error(404); return None
+    def log_message(self, *a): pass
+    def end_headers(self):
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Cache-Control", "public, max-age=3600")
+        super().end_headers()
+os.chdir(sys.argv[1])
+http.server.ThreadingHTTPServer(("127.0.0.1", int(sys.argv[2])), H).serve_forever()
+PYEND
+  chmod 755 "$SITE_DIR" "$SITE_DIR/www"; chmod 644 "$SITE_DIR/www/index.html" "$SITE_DIR/serve.py"
+  cat > /etc/systemd/system/tunnel-site.service <<UNITEND
+[Unit]
+Description=Tunnel: cover site behind TrustTunnel (local only)
+After=network.target
+
+[Service]
+ExecStart=$(command -v python3) $SITE_DIR/serve.py $SITE_DIR/www $SITE_PORT
+User=nobody
+Nice=10
+MemoryMax=64M
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+RestrictAddressFamilies=AF_INET
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+UNITEND
+  systemctl daemon-reload
+  { systemctl enable tunnel-site >/dev/null 2>&1 && systemctl restart tunnel-site >/dev/null 2>&1; } || die "the site service did not start"
+  if ! site_on_toml; then
+    cp "$DIR/vpn.toml" "$DIR/vpn.toml.before-site"
+    printf '\n%s\n[reverse_proxy]\nserver_address = "127.0.0.1:%s"\npath_mask = "/"\n' "$SITE_MARK" "$SITE_PORT" >> "$DIR/vpn.toml"
+    ok=1; systemctl restart trusttunnel >/dev/null 2>&1 || ok=0
+    sleep 2; systemctl is-active --quiet trusttunnel || ok=0
+    if [ "$ok" = 0 ]; then
+      cp "$DIR/vpn.toml.before-site" "$DIR/vpn.toml"; systemctl restart trusttunnel >/dev/null 2>&1
+      die "TrustTunnel did not accept the site settings, they were rolled back"
+    fi
+  fi
+  say '{"ok":true}'
+}
+
+cmd_site_off() {
+  need_root
+  if site_on_toml; then site_off_toml; restart_endpoint; fi
+  systemctl disable --now tunnel-site >/dev/null 2>&1
+  rm -f /etc/systemd/system/tunnel-site.service; systemctl daemon-reload >/dev/null 2>&1
+  rm -rf "$SITE_DIR"
+  say '{"ok":true}'
+}
+
 # install KEY=VALUE...: listen user pass cert(self-signed|letsencrypt|provided) hostname email chain key stats(1|0) firewall(1|0) force(1|0)
 cmd_install() {
   need_root
@@ -271,7 +367,8 @@ cmd_update() {
 
 cmd_uninstall() {
   need_root
-  systemctl disable --now trusttunnel tunnel-stats.timer >/dev/null 2>&1
+  systemctl disable --now trusttunnel tunnel-stats.timer tunnel-site >/dev/null 2>&1
+  rm -rf /var/lib/tunnel-site /etc/systemd/system/tunnel-site.service
   rm -f /etc/systemd/system/trusttunnel.service /etc/systemd/system/tunnel-stats.service /etc/systemd/system/tunnel-stats.timer
   systemctl daemon-reload
   rm -rf "$DIR"
@@ -292,6 +389,8 @@ case "$c" in
   update) cmd_update ;;
   uninstall) cmd_uninstall ;;
   collect) need_root; collect ;;
+  site-on) cmd_site_on ;;
+  site-off) cmd_site_off ;;
   stats) need_root; enable_metrics; install_timer; restart_endpoint; say '{"ok":true}' ;;
   *) die "unknown command: $c" ;;
 esac
