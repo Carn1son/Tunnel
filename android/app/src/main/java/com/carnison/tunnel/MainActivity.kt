@@ -92,6 +92,9 @@ class MainActivity : Activity() {
             WindowInsetsCompat.CONSUMED
         }
         applyTheme(Vpn.prefs(this).getString("theme", "dark") != "light")
+        // Android 13+ (predictive back): the same handling through the new callback
+        if (Build.VERSION.SDK_INT >= 33)
+            onBackInvokedDispatcher.registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT) { goBack() }
         web.loadUrl("file:///android_asset/index.html")
         Vpn.stateListeners += stateListener
         Vpn.connListeners += connListener
@@ -114,9 +117,20 @@ class MainActivity : Activity() {
 
     private fun linkOf(i: Intent?): String? = i?.data?.toString()?.takeIf { it.startsWith("tt://", true) || it.startsWith("trusttunnel://", true) }
 
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
+    /** Back closes what is open in the page and returns to the servers screen; from there Tunnel goes to the background. */
+    private fun goBack() {
         web.evaluateJavascript("(window.tnBack && window.tnBack()) ? 1 : 0") { v -> if (v != "1") moveTaskToBack(true) }
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() = goBack()
+
+    // back after a while in the background: the app opens on the servers screen again
+    private var stoppedAt = 0L
+    override fun onStop() { super.onStop(); stoppedAt = System.currentTimeMillis() }
+    override fun onRestart() {
+        super.onRestart()
+        if (pageReady && stoppedAt > 0 && System.currentTimeMillis() - stoppedAt > 30_000) event(JSONObject().put("t", "home"))
     }
 
     // ---------- page <-> app
@@ -165,6 +179,11 @@ class MainActivity : Activity() {
                 val theme = o?.optString("theme", "dark") ?: "dark"
                 Vpn.prefs(this).edit().putString("state", st).putString("lang", lang).putString("theme", theme).apply()
                 applyTheme(theme != "light")
+            }
+            "theme" -> {
+                val dark = m.optBoolean("dark", true)
+                Vpn.prefs(this).edit().putString("theme", if (dark) "dark" else "light").apply()
+                applyTheme(dark)
             }
             "connect" -> {
                 val prep = VpnService.prepare(this)

@@ -173,19 +173,25 @@ namespace Tunnel
     {
         [System.Runtime.InteropServices.DllImport("dwmapi.dll")]
         static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
-        protected override void OnHandleCreated(EventArgs e) // dark title bar to match the page
+        protected override void OnHandleCreated(EventArgs e) // title bar in the page's theme
         {
             base.OnHandleCreated(e);
-            try
-            {
-                int on = 1; if (DwmSetWindowAttribute(Handle, 20, ref on, 4) != 0) DwmSetWindowAttribute(Handle, 19, ref on, 4);
-                int cap = 0x00121212, text = 0x00ececec; // 0x00BBGGRR, Windows 11
-                DwmSetWindowAttribute(Handle, 35, ref cap, 4); DwmSetWindowAttribute(Handle, 36, ref text, 4);
-            }
-            catch { }
+            TitleBar(LightTheme());
             if (!inited) { inited = true; BeginInvoke(new Action(async () => await Init())); } // also when started hidden in the tray
         }
         bool inited;
+
+        bool LightTheme() { try { return state != null && (string)state["theme"] == "light"; } catch { return false; } }
+        void TitleBar(bool light)
+        {
+            try
+            {
+                int dark = light ? 0 : 1; if (DwmSetWindowAttribute(Handle, 20, ref dark, 4) != 0) DwmSetWindowAttribute(Handle, 19, ref dark, 4);
+                int cap = light ? 0x00ffffff : 0x00121212, text = light ? 0x00141414 : 0x00ececec; // 0x00BBGGRR, Windows 11
+                DwmSetWindowAttribute(Handle, 35, ref cap, 4); DwmSetWindowAttribute(Handle, 36, ref text, 4);
+            }
+            catch { }
+        }
 
         readonly WebView2 web = new WebView2();
         readonly NotifyIcon tray = new NotifyIcon();
@@ -356,6 +362,7 @@ namespace Tunnel
                     case "upd-download": Reply(req, await updater.Download()); break;
                     case "upd-install": if (updater.Install()) Quit(false); break;
                     case "open-url": External(S(m, "url")); break;
+                    case "theme": TitleBar(!(m.ContainsKey("dark") && Convert.ToBoolean(m["dark"]))); break;
                     case "quit": Quit(true); break;
                 }
             }

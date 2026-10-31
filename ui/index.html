@@ -500,6 +500,7 @@ if (HOST) HOST.addEventListener('message', function (e) {
   else if (m.t === 'tray') onTray(m);
   else if (m.t === 'link') importDlg(m.uri);
   else if (m.t === 'upd') onUpd(m);
+  else if (m.t === 'home') { if ($('dlg').open) $('dlg').close(); closeMenu(); RT.setOpen = false; S.tab = 'servers'; render(); }
 });
 
 /* ---------- icons ---------- */
@@ -539,7 +540,7 @@ function render() {
   ({ servers: renderServers, routing: renderRouting, split: renderSplit, log: renderLog })[S.tab]();
 }
 $('rail').onclick = function (e) { var b = e.target.closest('.tab'); if (!b) return; S.tab = b.dataset.tab; RT.setOpen = false; persist(); render(); };
-$('uiBtn').onclick = function () { S.theme = S.theme === 'dark' ? 'light' : 'dark'; persist(); render(); };
+$('uiBtn').onclick = function () { S.theme = S.theme === 'dark' ? 'light' : 'dark'; send('theme', { dark: S.theme === 'dark' }); persist(); render(); };
 $('setBtn').onclick = function () { RT.setOpen = !RT.setOpen; render(); };
 $('setShade').onclick = function () { RT.setOpen = false; render(); };
 document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && RT.setOpen && !$('dlg').open) { RT.setOpen = false; render(); } });
@@ -1026,12 +1027,22 @@ function onUpd(m) {
   else if (m.type === 'error') updSet('error', { msg: m.msg || '' });
 }
 
+/* back on the phone: close what is open, then return to the servers screen; only there the app goes to the background */
+window.tnBack = function () {
+  if ($('dlg').open) { $('dlg').close(); return true; }
+  if ($('ctx')) { closeMenu(); return true; }
+  if (RT.setOpen) { RT.setOpen = false; render(); return true; }
+  if (S && S.tab !== 'servers') { S.tab = 'servers'; persist(); render(); return true; }
+  return false;
+};
+
 /* ---------- start ---------- */
 $('reBtn').onclick = reconnect;
 if (HOST) {
   ask('ready').then(function (r) {
     var saved = null; try { saved = r.state ? JSON.parse(r.state) : null; } catch (e) {}
     S = fill(saved, BLANK);
+    S.tab = 'servers';
     render();
     onVpnState(r.vpn);
     if (r.link) importDlg(r.link);
