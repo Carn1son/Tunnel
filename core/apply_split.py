@@ -53,6 +53,69 @@ edit(client,
 
 print("apply_split: hook in place")
 
+# Connection details for the log (debug level): handshake time, bytes sent and received, duration.
+# The engine already counts bytes per connection; when a reported connection closes, it is reported once more
+# with these numbers (`closed` in the JSON), and the app adds them to the row of the same `id`.
+core = root / "core"
+vpnh = core / "include" / "vpn" / "vpn.h"
+edit(vpnh, "    VpnFinalConnectionAction action; // final action\n} VpnConnectionInfoEvent;\n",
+     "    VpnFinalConnectionAction action; // final action\n"
+     "    uint64_t tn_id = 0;              // Tunnel: connection id\n"
+     "    int tn_closed = 0;               // Tunnel: 1 when the connection has closed\n"
+     "    uint64_t tn_up = 0;              // Tunnel: bytes sent by the app\n"
+     "    uint64_t tn_down = 0;            // Tunnel: bytes received by the app\n"
+     "    int64_t tn_ms = -1;              // Tunnel: how long the connection lived, ms\n"
+     "    int64_t tn_hs = -1;              // Tunnel: time until the remote side was connected, ms\n"
+     "} VpnConnectionInfoEvent;\n")
+connh = core / "include" / "vpn" / "internal" / "vpn_connection.h"
+edit(connh, "    std::chrono::high_resolution_clock::time_point requested_at{};\n",
+     "    std::chrono::high_resolution_clock::time_point requested_at{};\n"
+     "    std::chrono::steady_clock::time_point tn_start{}; // Tunnel: when the app opened the connection\n"
+     "    int64_t tn_handshake_ms = -1;                     // Tunnel: until the remote side was connected\n")
+tun = core / "src" / "tunnel.cpp"
+edit(tun, "        conn->flags.set(CONNF_FIRST_PACKET);\n",
+     "        conn->flags.set(CONNF_FIRST_PACKET);\n        conn->tn_start = std::chrono::steady_clock::now();\n")
+edit(tun, '            log_tun(this, warn, "Got server connect result for inexistent or already closed connection: {}", id);\n            upstream->close_connection(id, false, true);\n            assert(0);\n            break;\n        }\n',
+     '            log_tun(this, warn, "Got server connect result for inexistent or already closed connection: {}", id);\n            upstream->close_connection(id, false, true);\n            assert(0);\n            break;\n        }\n'
+     '        if (conn->tn_handshake_ms < 0 && conn->tn_start.time_since_epoch().count() != 0) {\n'
+     '            conn->tn_handshake_ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - conn->tn_start).count();\n'
+     '        }\n')
+edit(tun, '        log_conn(tunnel, conn, dbg, "Destroyed (download={}, upload={})", conn->incoming_bytes, conn->outgoing_bytes);\n',
+     '        log_conn(tunnel, conn, dbg, "Destroyed (download={}, upload={})", conn->incoming_bytes, conn->outgoing_bytes);\n'
+     '        if (conn->flags.test(CONNF_CONN_INFO_SENT) && conn->tn_start.time_since_epoch().count() != 0) {\n'
+     '            VpnConnectionInfoEvent tn_info;\n'
+     '            tn_info.src = conn->addr.src.c_storage();\n'
+     '            const SocketAddress *tn_dst = std::get_if<SocketAddress>(&conn->addr.dst);\n'
+     '            tn_info.dst = tn_dst != nullptr ? tn_dst->c_storage() : nullptr;\n'
+     '            tn_info.domain = tn_dst != nullptr ? nullptr : std::get<NamePort>(conn->addr.dst).name.c_str();\n'
+     '            tn_info.proto = conn->proto;\n'
+     '            tn_info.action = VPN_FCA_TUNNEL;\n'
+     '            tn_info.tn_id = conn->client_id;\n'
+     '            tn_info.tn_closed = 1;\n'
+     '            tn_info.tn_up = conn->outgoing_bytes;\n'
+     '            tn_info.tn_down = conn->incoming_bytes;\n'
+     '            tn_info.tn_ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - conn->tn_start).count();\n'
+     '            tn_info.tn_hs = conn->tn_handshake_ms;\n'
+     '            const vpn_client::Handler &tn_handler = tunnel->vpn->parameters.handler;\n'
+     '            tn_handler.func(tn_handler.arg, vpn_client::EVENT_CONNECTION_INFO, &tn_info);\n'
+     '        }\n')
+edit(tun, "    info.action = get_final_action(self->vpn->domain_filter.get_mode(), conn->action.value_or(VPN_CA_DEFAULT));\n",
+     "    info.action = get_final_action(self->vpn->domain_filter.get_mode(), conn->action.value_or(VPN_CA_DEFAULT));\n    info.tn_id = conn->client_id;\n")
+ci = src / "connection_info.cpp"
+edit(ci, '    if (include_current_time) {\n',
+     '    json["id"] = info->tn_id;\n'
+     '    if (info->tn_closed) {\n'
+     '        json["closed"] = true;\n'
+     '        json["up"] = info->tn_up;\n'
+     '        json["down"] = info->tn_down;\n'
+     '        json["ms"] = info->tn_ms;\n'
+     '        if (info->tn_hs >= 0) {\n'
+     '            json["hs"] = info->tn_hs;\n'
+     '        }\n'
+     '    }\n\n'
+     '    if (include_current_time) {\n')
+print("apply_split: connection details in place")
+
 # Windows: bootstrap_conan_deps.py starts export_conan.sh directly, which only works where .sh files run.
 # Run it through Git's bash instead (not WSL's bash.exe from System32).
 if sys.platform == "win32":

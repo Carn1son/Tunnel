@@ -189,13 +189,21 @@ namespace Tunnel
                 int dark = light ? 0 : 1; if (DwmSetWindowAttribute(Handle, 20, ref dark, 4) != 0) DwmSetWindowAttribute(Handle, 19, ref dark, 4);
                 int cap = light ? 0x00ffffff : 0x00121212, text = light ? 0x00141414 : 0x00ececec; // 0x00BBGGRR, Windows 11
                 DwmSetWindowAttribute(Handle, 35, ref cap, 4); DwmSetWindowAttribute(Handle, 36, ref text, 4);
+                // Windows keeps the old caption until the frame is redrawn: redraw it now, not on the next move
+                SetWindowPos(Handle, IntPtr.Zero, 0, 0, 0, 0, 0x0002 | 0x0001 | 0x0004 | 0x0010 | 0x0020); // NOMOVE NOSIZE NOZORDER NOACTIVATE FRAMECHANGED
+                RedrawWindow(Handle, IntPtr.Zero, IntPtr.Zero, 0x0400 | 0x0001 | 0x0100 | 0x0080); // FRAME INVALIDATE UPDATENOW ALLCHILDREN
+                if (Visible && GetForegroundWindow() == Handle) { SendMessage(Handle, 0x0086, IntPtr.Zero, IntPtr.Zero); SendMessage(Handle, 0x0086, (IntPtr)1, IntPtr.Zero); } // WM_NCACTIVATE off/on
             }
             catch { }
         }
+        [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags);
+        [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool RedrawWindow(IntPtr h, IntPtr rect, IntPtr rgn, uint flags);
+        [System.Runtime.InteropServices.DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+        [System.Runtime.InteropServices.DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr h, int msg, IntPtr w, IntPtr l);
 
         readonly WebView2 web = new WebView2();
         readonly NotifyIcon tray = new NotifyIcon();
-        readonly Icon icoOn, icoOff;
+        readonly TrayArt trayArt;
         public readonly JavaScriptSerializer Json = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
         readonly Updater updater;
         bool startHidden, allowShow, quitting, pageReady;
@@ -212,7 +220,6 @@ namespace Tunnel
             Text = "Tunnel";
             var asm = Assembly.GetExecutingAssembly();
             Icon = Icon.ExtractAssociatedIcon(asm.Location);
-            icoOn = LoadIcon("tray_on.ico"); icoOff = LoadIcon("tray_off.ico");
             BackColor = ColorTranslator.FromHtml("#0a0a0a");
             MinimumSize = new Size(760, 560);
             Size = new Size(1100, 740);
@@ -222,7 +229,7 @@ namespace Tunnel
             Controls.Add(web);
             updater = new Updater(this);
 
-            tray.Icon = icoOff; tray.Text = "Tunnel"; tray.Visible = true;
+            tray.Text = "Tunnel"; trayArt = new TrayArt(tray); trayArt.Set(Core.Disconnected); tray.Visible = true;
             tray.MouseClick += (s, e) => { if (e.Button == MouseButtons.Left) ShowWindow(); };
             tray.ContextMenuStrip = new ContextMenuStrip();
             tray.ContextMenuStrip.Opening += (s, e) => BuildTrayMenu();
@@ -273,6 +280,16 @@ namespace Tunnel
                 var host = new Dictionary<string, object> { { "version", Build.Version }, { "label", Build.Label }, { "day", Build.Day } };
                 await cw.AddScriptToExecuteOnDocumentCreatedAsync("window.TUNNEL_HOST = " + Json.Serialize(host) + ";");
                 cw.WebMessageReceived += OnMessage;
+                // the page's right-click menu keeps only editing items: no Reload (it threw you back to the start), Save as, Print
+                cw.ContextMenuRequested += (s, e) =>
+                {
+                    var keep = new HashSet<string> { "copy", "cut", "paste", "selectAll", "pasteAndMatchStyle", "emoji", "undo", "redo", "copyLinkLocation", "spellCheck", "other" };
+                    var items = e.MenuItems;
+                    for (int i = items.Count - 1; i >= 0; i--) if (!keep.Contains(items[i].Name)) items.RemoveAt(i);
+                    while (items.Count > 0 && items[0].Kind == CoreWebView2ContextMenuItemKind.Separator) items.RemoveAt(0);
+                    while (items.Count > 0 && items[items.Count - 1].Kind == CoreWebView2ContextMenuItemKind.Separator) items.RemoveAt(items.Count - 1);
+                    if (items.Count == 0) e.Handled = true;
+                };
                 cw.NewWindowRequested += (s, e) => { e.Handled = true; External(e.Uri); };
                 cw.NavigationStarting += (s, e) => { if (!e.Uri.StartsWith("https://app.tunnel/", StringComparison.OrdinalIgnoreCase)) { e.Cancel = true; External(e.Uri); } };
                 cw.Navigate("https://app.tunnel/index.html");
@@ -358,6 +375,18 @@ namespace Tunnel
                             Reply(req, dir); break;
                         }
                     case "logs-clear": Core.ClearLogs(); Reply(req, true); break;
+                    case "save-file":
+                        {
+                            string name = S(m, "name") ?? "Tunnel.txt", text = S(m, "text") ?? "";
+                            string ext = Path.GetExtension(name).TrimStart('.').ToLowerInvariant();
+                            using (var d = new SaveFileDialog { FileName = name, Filter = ext.ToUpperInvariant() + "|*." + ext + "|" + T("Все файлы", "All files") + "|*.*", InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory) })
+                            {
+                                if (d.ShowDialog(this) != DialogResult.OK) { Reply(req, false); break; }
+                                try { File.WriteAllText(d.FileName, text, new UTF8Encoding(false)); Reply(req, true); }
+                                catch (Exception ex) { Reply(req, false, ex.Message); }
+                            }
+                            break;
+                        }
                     case "traffic": Reply(req, await Task.Run(() => Traffic())); break;
                     case "upd-check": Reply(req, await updater.Check()); break;
                     case "upd-download": Reply(req, await updater.Download()); break;
@@ -417,7 +446,7 @@ namespace Tunnel
             if (st == Core.Connected && vpnState != Core.Connected) { sessSince = DateTime.UtcNow; TunBytes(out baseRx, out baseTx); }
             if (st != Core.Connected) sessSince = DateTime.MinValue;
             vpnState = st;
-            tray.Icon = st == Core.Connected ? icoOn : icoOff;
+            trayArt.Set(st);
             tray.Text = "Tunnel — " + (st == Core.Connected ? T("подключено", "connected") : st == Core.Disconnected ? T("отключено", "disconnected") : T("подключение…", "connecting…"));
             Event("vpn", new Dictionary<string, object> { { "state", st } });
         }
@@ -429,7 +458,7 @@ namespace Tunnel
             try { info = Json.Deserialize<Dictionary<string, object>>(json); } catch { return; }
             // the engine reports the virtual-interface side; the owning program is looked up while the socket is still open
             string src = S(info, "src"), proto = S(info, "proto");
-            if (src != null)
+            if (src != null && !info.ContainsKey("closed"))
             {
                 string path = Apps.OwnerOf(src, proto == "TCP");
                 if (path != null) { info["app"] = Path.GetFileName(path); info["path"] = path; }

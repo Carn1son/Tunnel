@@ -213,7 +213,7 @@ class TunnelVpnService : android.net.VpnService() {
         override fun onConnectionInfo(info: String) {
             if (g != gen) return
             val j = runCatching { JSONObject(info) }.getOrNull() ?: return
-            ownerOf(j)?.let { (label, pkg) -> j.put("app", label); j.put("path", pkg) }
+            if (!j.optBoolean("closed")) ownerOf(j)?.let { (label, pkg) -> j.put("app", label); j.put("path", pkg) }
             Vpn.connection(j)
         }
     }

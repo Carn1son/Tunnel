@@ -42,6 +42,7 @@ class MainActivity : Activity() {
     companion object {
         private const val REQ_VPN = 1
         private const val REQ_KEY = 3
+        private const val REQ_SAVE = 4
         private const val REPO = "Carn1son/Tunnel"
         private const val APK = "Tunnel.apk"
     }
@@ -54,6 +55,7 @@ class MainActivity : Activity() {
     private var pendingConnect: Pair<JSONObject, Any?>? = null
     private var downloadedApk: File? = null
     private var pendingKeyReq: Any? = null
+    private var pendingSave: Pair<Any?, String>? = null
 
     private val stateListener: (Int) -> Unit = { s -> event(JSONObject().put("t", "vpn").put("state", s)) }
     private val connListener: (JSONObject) -> Unit = { info -> event(JSONObject().put("t", "conn").put("info", info)) }
@@ -189,6 +191,12 @@ class MainActivity : Activity() {
                 catch (e: Exception) { reply(req, null, "connect: " + (e.message ?: e.javaClass.simpleName)) }
             }
             "ssh-drop" -> m.optJSONObject("conn")?.let { c -> io.execute { Ssh.drop(c) } }
+            "save-file" -> {
+                pendingSave = req to m.optString("text")
+                val i = Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
+                    .setType(m.optString("mime", "text/plain")).putExtra(Intent.EXTRA_TITLE, m.optString("name"))
+                runCatching { startActivityForResult(i, REQ_SAVE) }.onFailure { pendingSave = null; reply(req, false) }
+            }
             "pick-key" -> { pendingKeyReq = req; runCatching { startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*"), REQ_KEY) }.onFailure { reply(req, null) } }
             "theme" -> {
                 val dark = m.optBoolean("dark", true)
@@ -257,6 +265,17 @@ class MainActivity : Activity() {
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQ_SAVE) {
+            val p = pendingSave ?: return
+            pendingSave = null
+            val u = data?.data?.takeIf { resultCode == RESULT_OK }
+            if (u == null) { reply(p.first, false); return }
+            io.execute {
+                val ok = runCatching { contentResolver.openOutputStream(u, "wt")?.use { it.write(p.second.toByteArray(Charsets.UTF_8)) } != null }.getOrDefault(false)
+                reply(p.first, ok)
+            }
+            return
+        }
         if (requestCode == REQ_KEY) {
             val r = pendingKeyReq; pendingKeyReq = null
             val text = data?.data?.takeIf { resultCode == RESULT_OK }?.let { u -> runCatching { contentResolver.openInputStream(u)?.use { it.readBytes().toString(Charsets.UTF_8) } }.getOrNull() }

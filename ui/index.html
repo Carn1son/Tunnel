@@ -187,6 +187,7 @@ textarea.lines4 { min-height: 0; padding-bottom: 0; height: calc(6em + 9px); } /
 .logt td.vpn { color: var(--accent); }
 .logt td.byp { color: var(--muted); }
 .logt td.rej { color: var(--err); }
+.logt td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .logwrap { max-height: calc(100vh - 230px); overflow: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
 
 /* settings overlay */
@@ -295,6 +296,7 @@ details.adv[open] > div { display: grid; gap: 11px; margin-top: 8px; }
   .utraffic small { display: none; }
   .wq { grid-template-columns: minmax(0, 1fr); } .wq > i { display: none; }
   /* log */
+  .logbar .btn .bl { display: none; }
   .logbar { flex-wrap: nowrap; gap: 6px; } .logbar input { min-width: 0; flex: 1; } .logbar .btn { padding: 6px 9px; }
   #logBody { flex: 1; min-height: 0; display: flex; flex-direction: column; }
   #logBody .logwrap { flex: 1; min-height: 0; overflow: auto; }
@@ -677,7 +679,7 @@ var L = {
   running: 'Запущенные приложения', pick: 'Выбрать',
   logSearch: 'Фильтр: домен, IP, приложение…', pause: 'Пауза', resume: 'Продолжить', clear: 'Очистить',
   logEmptyT: 'Соединений пока нет', logEmptyD: 'Журнал показывает, куда идёт трафик и как он маршрутизируется. Подключитесь к серверу и откройте сайт.',
-  colTime: 'Время', colApp: 'Приложение', colProto: 'Прот.', colDst: 'Назначение', colRoute: 'Маршрут', colRule: 'Правило',
+  colTime: 'Время', colApp: 'Приложение', colProto: 'Прот.', colDst: 'Назначение', colRoute: 'Маршрут', colRule: 'Правило', colHs: 'Рукопожатие', colUp: 'Отправлено', colDown: 'Получено', colDur: 'Длительность', ms: 'мс', sec: 'с', saveLog: 'Сохранить', saveAs: 'Сохранить как {0}', logSaved: 'Журнал сохранён', open: 'открыто',
   rVpn: 'VPN', rByp: 'напрямую', rRej: 'отклонено', reconnect: 'Переподключить', reconnectD: 'Настройки изменились — переподключитесь, чтобы применить',
   errAccess: 'Нет доступа к службе Tunnel', errNoService: 'Служба Tunnel не установлена — переустановите приложение', errTimeout: 'Служба Tunnel не ответила вовремя', errOther: 'Не удалось подключиться, подробности в логах', badLink: 'Не удалось разобрать ссылку',
   updChecking: 'Проверяю…', updAvail: 'Есть обновление: {0}', updReady: 'Обновление загружено.', updInstalling: 'Открываю установщик…', updFail: 'Не получилось: {0}', updNow: 'Обновить', updNew: 'Доступна версия {0}', updGet: 'Скачать и установить', updLoading: 'Загрузка… {0}%', updErr: 'Не удалось проверить обновления', updInstall: 'Установить',
@@ -687,7 +689,7 @@ var L = {
   autoconnect: 'Подключаться при запуске', autoconnectD: 'К последнему выбранному серверу', autoconnectNo: 'Серверы не добавлены — настройка заработает после добавления',
   minTray: 'Сворачивать в трей при закрытии окна',
   excluded: 'Исключённые маршруты', excludedD: 'Низкоуровневое исключение подсетей из туннеля. Важнее профилей. Только CIDR, по одному в строке.',
-  logging: 'Журнал приложения', level: 'Уровень', lvBasic: 'Обычный', lvDebug: 'Отладка', lvDebugD: 'Пишет больше событий, для поиска проблем',
+  logging: 'Журнал приложения', level: 'Уровень', lvBasic: 'Обычный', lvDebug: 'Отладка', lvDebugD: 'Пишет больше событий; в журнале соединений — рукопожатие, отправлено, получено и длительность',
   sensitive: 'Чувствительные данные', sStrip: 'Вырезать', sInclude2: 'Оставлять', sensD: 'Пароли и ссылки на сервер не пишутся никогда',
   exportLogs: 'Выгрузить логи и сведения о системе', delLogs: 'Удалить логи приложения', logsDeleted: 'Логи приложения удалены', logsExported: 'Логи выгружены',
   updates: 'Обновления', autoUpd: 'Проверять обновления автоматически', checkUpd: 'Проверить сейчас', upToDate: 'Установлена последняя версия',
@@ -723,7 +725,7 @@ var L = {
   running: 'Running apps', pick: 'Pick',
   logSearch: 'Filter: domain, IP, app…', pause: 'Pause', resume: 'Resume', clear: 'Clear',
   logEmptyT: 'No connections yet', logEmptyD: 'The log shows where your traffic goes and how it is routed. Connect to your server and open a website.',
-  colTime: 'Time', colApp: 'App', colProto: 'Proto', colDst: 'Destination', colRoute: 'Route', colRule: 'Rule',
+  colTime: 'Time', colApp: 'App', colProto: 'Proto', colDst: 'Destination', colRoute: 'Route', colRule: 'Rule', colHs: 'Handshake', colUp: 'Sent', colDown: 'Received', colDur: 'Duration', ms: 'ms', sec: 's', saveLog: 'Save', saveAs: 'Save as {0}', logSaved: 'Log saved', open: 'open',
   rVpn: 'VPN', rByp: 'direct', rRej: 'rejected', reconnect: 'Reconnect', reconnectD: 'Settings changed — reconnect to apply them',
   errAccess: 'No access to the Tunnel service', errNoService: 'The Tunnel service is not installed — reinstall the app', errTimeout: 'The Tunnel service did not answer in time', errOther: 'Could not connect, see the logs', badLink: 'Could not decode the link',
   updChecking: 'Checking…', updAvail: 'Update available: {0}', updReady: 'Update downloaded.', updInstalling: 'Opening the installer…', updFail: 'Failed: {0}', updNow: 'Update', updNew: 'Version {0} is available', updGet: 'Download and install', updLoading: 'Downloading… {0}%', updErr: 'Could not check for updates', updInstall: 'Install',
@@ -733,7 +735,7 @@ var L = {
   autoconnect: 'Auto-connect on launch', autoconnectD: 'To the last selected server', autoconnectNo: 'No servers added. Add one to apply this setting',
   minTray: 'Minimise to tray when the window is closed',
   excluded: 'Excluded routes', excludedD: 'Low-level exclusion of subnets from the tunnel. Takes precedence over profiles. CIDR only, one per line.',
-  logging: 'App logging', level: 'Level', lvBasic: 'Default', lvDebug: 'Debug', lvDebugD: 'Logs extra events, for diagnosing problems',
+  logging: 'App logging', level: 'Level', lvBasic: 'Default', lvDebug: 'Debug', lvDebugD: 'Logs extra events; the connection log shows handshake, sent, received and duration',
   sensitive: 'Sensitive data', sStrip: 'Stripped', sInclude2: 'Included', sensD: 'Passwords and server links are never logged',
   exportLogs: 'Export app logs and system info', delLogs: 'Delete app logs', logsDeleted: 'App logs deleted', logsExported: 'App logs exported',
   updates: 'Updates', autoUpd: 'Check for updates automatically', checkUpd: 'Check now', upToDate: 'You have the latest version',
@@ -800,7 +802,7 @@ function fill(o, def) {
   return o;
 }
 var S = null;
-var RT = { conn: 'off', since: 0, count: 0, viaVpn: 0, log: [], paused: false, q: '', setOpen: false, profSel: null, toml: null, reconnect: false, upd: null };
+var RT = { byId: {}, conn: 'off', since: 0, count: 0, viaVpn: 0, log: [], paused: false, q: '', setOpen: false, profSel: null, toml: null, reconnect: false, upd: null };
 var saveTimer = null;
 function persist() {
   if (!HOST) { try { localStorage.setItem('tunnel.ui', JSON.stringify(S)); } catch (e) {} }
@@ -935,14 +937,24 @@ function onConn(info) {
   var d = info.date ? new Date(info.date) : new Date();
   var dst = info.dst || '';
   if (info.domain) { var port = dst.slice(dst.lastIndexOf(':') + 1); dst = info.domain + (port && /^\d+$/.test(port) ? ':' + port : ''); }
+  // a reported connection has closed: its numbers go into the row it already has
+  if (info.closed) {
+    var row = RT.byId[info.id]; if (!row) return;
+    row.up = +info.up || 0; row.down = +info.down || 0; row.ms = +info.ms; if (info.hs != null) row.hs = +info.hs;
+    if (S.tab === 'log' && S.set.level === 'debug') logRedraw();
+    return;
+  }
   var route = info.action === 'tunnel' ? 'vpn' : info.action === 'bypass' ? 'byp' : 'rej';
-  addLog({ time: d.toTimeString().slice(0, 8), app: info.app || '—', path: info.path || '', proto: info.proto || '', dst: dst, route: route });
+  addLog({ id: info.id, time: d.toTimeString().slice(0, 8), date: info.date || d.toISOString(), app: info.app || '—', path: info.path || '', proto: info.proto || '', dst: dst, route: route });
 }
+var logTimer = null;
+function logRedraw() { if (!logTimer) logTimer = setTimeout(function () { logTimer = null; renderLogRows(); }, 300); }
 function addLog(r) {
   RT.count++; if (r.route === 'vpn') RT.viaVpn++;
   if (RT.paused) return;
-  RT.log.unshift(r); if (RT.log.length > 1000) RT.log.pop();
-  if (S.tab === 'log') renderLogRows();
+  RT.log.unshift(r); if (r.id != null) RT.byId[r.id] = r;
+  if (RT.log.length > 1000) { var old = RT.log.pop(); if (old.id != null && RT.byId[old.id] === old) delete RT.byId[old.id]; }
+  if (S.tab === 'log') logRedraw();
 }
 function onTray(m) {
   if (m.action === 'connect') { if (RT.conn === 'off') connect(); }
@@ -1016,7 +1028,9 @@ function demoTick() {
   var d = DEMO[Math.floor(Math.random() * DEMO.length)], sp = S.split;
   var hit = sp.on && (sp.apps.some(function (a) { return a.on && a.path.toLowerCase().split('\\').pop() === d[0].toLowerCase(); }) || sp.ips.some(function (i) { return i.on && d[1].indexOf(i.v.split('/')[0].split(':')[0].split('.').slice(0, 2).join('.')) === 0; }));
   var route = sp.on ? (hit ? (sp.mode === 'exclude' ? 'byp' : 'vpn') : (sp.mode === 'include' ? 'byp' : 'vpn')) : 'vpn';
-  addLog({ time: new Date().toTimeString().slice(0, 8), app: d[0], proto: d[2], dst: d[1], route: route });
+  var did = 'd' + (++RT.count), hs = Math.round(20 + Math.random() * 180);
+  addLog({ id: did, time: new Date().toTimeString().slice(0, 8), app: d[0], proto: d[2], dst: d[1], route: route });
+  if (route !== 'rej') setTimeout(function () { onConn({ closed: true, id: did, hs: hs, up: Math.round(Math.random() * 40000), down: Math.round(Math.random() * 900000), ms: Math.round(300 + Math.random() * 9000) }); }, 1500 + Math.random() * 4000);
 }
 
 /* ---------- servers ---------- */
@@ -1596,19 +1610,51 @@ setInterval(function () { var a = S && S.tab === 'admin' && !RT.setOpen && admCu
 /* ---------- connection log ---------- */
 function renderLog() {
   $('view').innerHTML = '<div class="inner"><div class="head"><h2>' + t('log') + '</h2></div>' +
-    '<div class="logbar"><input type="search" id="logQ" placeholder="' + t('logSearch') + '" value="' + esc(RT.q) + '"><button class="btn" id="logPause">' + (RT.paused ? t('resume') : t('pause')) + '</button><button class="btn" id="logClear">' + t('clear') + '</button></div>' +
+    '<div class="logbar"><input type="search" id="logQ" placeholder="' + t('logSearch') + '" value="' + esc(RT.q) + '"><button class="btn" id="logPause">' + (RT.paused ? t('resume') : t('pause')) + '</button><button class="btn" id="logClear">' + t('clear') + '</button><button class="btn" id="logSave" title="' + t('saveLog') + '">' + IC.imp + '<span class="bl">' + t('saveLog') + '</span></button></div>' +
     '<div id="logBody"></div></div>';
   $('logQ').oninput = function () { RT.q = this.value; renderLogRows(); };
   $('logPause').onclick = function () { RT.paused = !RT.paused; this.textContent = RT.paused ? t('resume') : t('pause'); };
-  $('logClear').onclick = function () { RT.log = []; renderLogRows(); };
+  $('logClear').onclick = function () { RT.log = []; RT.byId = {}; renderLogRows(); };
+  $('logSave').onclick = function (e) {
+    e.stopPropagation(); var r = this.getBoundingClientRect();
+    menu(r.right - 200, r.bottom + 4, [['JSON', function () { saveLog('json'); }], ['TXT', function () { saveLog('txt'); }], ['CSV', function () { saveLog('csv'); }]].map(function (x) { return [t('saveAs', x[0]), x[1]]; }));
+  };
   renderLogRows();
 }
 function renderLogRows() {
   var b = $('logBody'); if (!b) return;
   if (!RT.log.length) { b.innerHTML = '<div class="box empty"><b>' + t('logEmptyT') + '</b><span>' + t('logEmptyD') + '</span></div>'; return; }
   var qq = RT.q.toLowerCase(), rows = RT.log.filter(function (r) { return !qq || (r.app + ' ' + r.dst + ' ' + r.path).toLowerCase().indexOf(qq) >= 0; }).slice(0, 400);
-  b.innerHTML = '<div class="logwrap"><table class="logt"><thead><tr><th>' + t('colTime') + '</th><th>' + t('colApp') + '</th><th>' + t('colProto') + '</th><th>' + t('colDst') + '</th><th>' + t('colRoute') + '</th></tr></thead><tbody>' +
-    rows.map(function (r) { return '<tr><td>' + esc(r.time) + '</td><td title="' + esc(r.path || r.app) + '">' + esc(r.app) + '</td><td>' + esc(r.proto) + '</td><td title="' + esc(r.dst) + '">' + esc(r.dst) + '</td><td class="' + r.route + '">' + (r.route === 'vpn' ? t('rVpn') : r.route === 'byp' ? t('rByp') : t('rRej')) + '</td></tr>'; }).join('') + '</tbody></table></div>';
+  var dbg = S.set.level === 'debug';
+  b.innerHTML = '<div class="logwrap"><table class="logt' + (dbg ? ' dbg' : '') + '"><thead><tr><th>' + t('colTime') + '</th><th>' + t('colApp') + '</th><th>' + t('colProto') + '</th><th>' + t('colDst') + '</th><th>' + t('colRoute') + '</th>' +
+    (dbg ? '<th>' + t('colHs') + '</th><th>' + t('colUp') + '</th><th>' + t('colDown') + '</th><th>' + t('colDur') + '</th>' : '') + '</tr></thead><tbody>' +
+    rows.map(function (r) {
+      var x = dbg ? '<td class="num">' + logHs(r) + '</td><td class="num">' + (r.up != null ? fmtSize(r.up) : '') + '</td><td class="num">' + (r.down != null ? fmtSize(r.down) : '') + '</td><td class="num">' + logDur(r) + '</td>' : '';
+      return '<tr><td>' + esc(r.time) + '</td><td title="' + esc(r.path || r.app) + '">' + esc(r.app) + '</td><td>' + esc(r.proto) + '</td><td title="' + esc(r.dst) + '">' + esc(r.dst) + '</td><td class="' + r.route + '">' + routeName(r) + '</td>' + x + '</tr>';
+    }).join('') + '</tbody></table></div>';
+}
+function routeName(r) { return r.route === 'vpn' ? t('rVpn') : r.route === 'byp' ? t('rByp') : t('rRej'); }
+function logHs(r) { return r.hs != null ? r.hs + ' ' + t('ms') : ''; }
+function logDur(r) {
+  if (r.ms == null || isNaN(r.ms)) return r.id != null && r.route !== 'rej' ? '<span class="muted">' + t('open') + '</span>' : '';
+  return r.ms < 1000 ? r.ms + ' ' + t('ms') : r.ms < 60000 ? (r.ms / 1000).toFixed(1) + ' ' + t('sec') : fmtDur(r.ms);
+}
+/* the connection log as JSON, text or CSV, with the numbers when they are known */
+function saveLog(kind) {
+  var rows = RT.log.slice().reverse(), text, mime;
+  function obj(r) { var o = { time: r.date || r.time, app: r.app, path: r.path || undefined, proto: r.proto, destination: r.dst, route: r.route === 'vpn' ? 'vpn' : r.route === 'byp' ? 'bypass' : 'reject' }; if (r.hs != null) o.handshake_ms = r.hs; if (r.up != null) o.sent_bytes = r.up; if (r.down != null) o.received_bytes = r.down; if (r.ms != null && !isNaN(r.ms)) o.duration_ms = r.ms; return o; }
+  if (kind === 'json') { text = JSON.stringify(rows.map(obj), null, 2); mime = 'application/json'; }
+  else if (kind === 'csv') {
+    var cols = ['time', 'app', 'path', 'proto', 'destination', 'route', 'handshake_ms', 'sent_bytes', 'received_bytes', 'duration_ms'];
+    text = '\ufeff' + cols.join(',') + '\r\n' + rows.map(function (r) { var o = obj(r); return cols.map(function (c) { var v = o[c] == null ? '' : String(o[c]); return /[",\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }).join(','); }).join('\r\n');
+    mime = 'text/csv';
+  } else {
+    text = rows.map(function (r) { var o = obj(r); return [r.time, o.route.toUpperCase(), r.proto, r.dst, r.app].concat(o.handshake_ms != null ? [t('colHs') + ' ' + o.handshake_ms + ' ' + t('ms')] : []).concat(o.sent_bytes != null ? ['↑ ' + fmtSize(o.sent_bytes), '↓ ' + fmtSize(o.received_bytes)] : []).concat(o.duration_ms != null ? [logDur(r)] : []).join('  '); }).join('\r\n');
+    mime = 'text/plain';
+  }
+  var name = 'Tunnel-connections-' + new Date().toISOString().slice(0, 16).replace(/[T:]/g, '-') + '.' + kind;
+  if (!HOST) { var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: mime })); a.download = name; a.click(); return; }
+  ask('save-file', { name: name, text: text, mime: mime }).then(function (ok) { if (ok) toast(t('logSaved')); }, function () {});
 }
 
 /* ---------- settings (opens over the tabs) ---------- */
