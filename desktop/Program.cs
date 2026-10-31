@@ -118,7 +118,12 @@ namespace Tunnel
 
         static string Unpack()
         {
-            string dir = Path.Combine(Home, "app-" + Build.Version);
+            // the folder name also carries a hash of the page, so a rebuild with the same version still brings the new interface
+            string hash;
+            using (var st = Assembly.GetExecutingAssembly().GetManifestResourceStream("index.html"))
+            using (var sha = System.Security.Cryptography.SHA1.Create())
+                hash = BitConverter.ToString(sha.ComputeHash(st)).Replace("-", "").Substring(0, 10).ToLowerInvariant();
+            string dir = Path.Combine(Home, "app-" + Build.Version + "-" + hash);
             string mark = Path.Combine(dir, ".ok");
             if (File.Exists(mark)) return dir;
             if (Directory.Exists(dir)) Directory.Delete(dir, true);
