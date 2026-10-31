@@ -48,6 +48,7 @@ class TunnelVpnService : android.net.VpnService() {
     @Volatile private var network: Network? = null   // the physical network the tunnel runs over
     private val main = android.os.Handler(android.os.Looper.getMainLooper())
     private var lostCheck: Runnable? = null
+    @Volatile private var blocked = false
     @Volatile private var lastDns: Pair<List<String>, List<String>?>? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -58,7 +59,7 @@ class TunnelVpnService : android.net.VpnService() {
                 ACTION_STOP -> close()
                 ACTION_TOGGLE -> {
                     val toml = Vpn.lastToml(this)
-                    if (running || toml == null || prepare(this) != null) close() else open(toml, JSONObject(Vpn.lastExtra(this)))
+                    if (running || Vpn.state != Vpn.DISCONNECTED || toml == null || prepare(this) != null) close() else open(toml, JSONObject(Vpn.lastExtra(this)))
                 }
                 // ACTION_START, or Android starting the service for Always-on VPN: the last configuration
                 else -> {
@@ -148,6 +149,10 @@ class TunnelVpnService : android.net.VpnService() {
                 val priv = com.adguard.trusttunnel.utils.NetworkUtils.getPrivateDns(lp)?.toList()
                 val dns = if (priv != null) priv to servers else servers to null
                 if (dns != lastDns) { lastDns = dns; runCatching { VpnClient.setSystemDnsServers(dns.first, dns.second) } }
+            }
+            override fun onBlockedStatusChanged(n: Network, isBlocked: Boolean) {
+                // the system cut Tunnel's network (battery saver, background data): say so in the notification
+                if (n == network || network == null) { blocked = isBlocked; android.util.Log.w("Tunnel", "network blocked: $isBlocked"); updateNotification() }
             }
             override fun onLost(n: Network) {
                 main.post {
@@ -247,7 +252,7 @@ class TunnelVpnService : android.net.VpnService() {
         return Notification.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_tile)
             .setContentTitle(Vpn.statusText(this))
-            .setContentText(Vpn.lastServerName(this))
+            .setContentText(if (blocked) (if (en) "The system limits Tunnel in the background: allow it to work without battery restrictions" else "Система ограничивает Tunnel в фоне: разрешите работу без ограничений батареи") else Vpn.lastServerName(this))
             .setContentIntent(open)
             .setOngoing(true)
             .setColor(0xFF3B82F6.toInt())

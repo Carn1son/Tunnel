@@ -239,6 +239,19 @@ class MainActivity : Activity() {
         val extra = m.optJSONObject("android") ?: JSONObject()
         Vpn.start(this, m.optString("toml"), extra.toString())
         reply(req, true)
+        askBattery()
+    }
+
+    /**
+     * Battery savers (HyperOS, One UI and others) cut the network of apps that are not on screen, so a VPN started
+     * from the widget or the tile keeps reconnecting. Once, Tunnel asks to be left out of battery optimisation.
+     */
+    @SuppressLint("BatteryLife")
+    private fun askBattery() {
+        val pm = getSystemService(android.os.PowerManager::class.java)
+        if (pm.isIgnoringBatteryOptimizations(packageName) || Vpn.prefs(this).getBoolean("askedBattery", false)) return
+        Vpn.prefs(this).edit().putBoolean("askedBattery", true).apply()
+        runCatching { startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName"))) }
     }
 
     @Deprecated("Deprecated in Java")

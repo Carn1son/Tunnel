@@ -16,10 +16,25 @@ class TunnelTile : TileService() {
         }
     }
 
-    private val listener: (Int) -> Unit = { draw() }
+    private val main = android.os.Handler(android.os.Looper.getMainLooper())
+    private var blink = false
+    private var listening = false
+    // while connecting the tile pulses: bright and dim in turn, until the state settles
+    private val pulse = object : Runnable {
+        override fun run() {
+            if (!listening || Vpn.state == Vpn.CONNECTED || Vpn.state == Vpn.DISCONNECTED) return
+            blink = !blink; draw(); main.postDelayed(this, 450)
+        }
+    }
+    private val listener: (Int) -> Unit = { main.post { draw(); startPulse() } }
 
-    override fun onStartListening() { Vpn.stateListeners += listener; draw() }
-    override fun onStopListening() { Vpn.stateListeners -= listener }
+    private fun startPulse() {
+        main.removeCallbacks(pulse)
+        if (listening && Vpn.state != Vpn.CONNECTED && Vpn.state != Vpn.DISCONNECTED) main.postDelayed(pulse, 450)
+    }
+
+    override fun onStartListening() { listening = true; Vpn.stateListeners += listener; draw(); startPulse() }
+    override fun onStopListening() { listening = false; main.removeCallbacks(pulse); Vpn.stateListeners -= listener }
 
     override fun onClick() {
         if (!Vpn.toggle(this)) {
@@ -32,9 +47,10 @@ class TunnelTile : TileService() {
 
     private fun draw() {
         val t = qsTile ?: return
-        t.state = when (Vpn.state) { Vpn.CONNECTED -> Tile.STATE_ACTIVE; Vpn.DISCONNECTED -> Tile.STATE_INACTIVE; else -> Tile.STATE_ACTIVE }
+        // off: the dim system look; on: lit; connecting: pulses between the two
+        t.state = when (Vpn.state) { Vpn.CONNECTED -> Tile.STATE_ACTIVE; Vpn.DISCONNECTED -> Tile.STATE_INACTIVE; else -> if (blink) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE }
         t.label = "Tunnel"
-        if (Build.VERSION.SDK_INT >= 29) t.subtitle = if (Vpn.state == Vpn.DISCONNECTED) Vpn.statusText(this) else Vpn.lastServerName(this)
+        if (Build.VERSION.SDK_INT >= 29) t.subtitle = if (Vpn.state == Vpn.CONNECTED) Vpn.lastServerName(this) else Vpn.statusText(this)
         t.updateTile()
     }
 }

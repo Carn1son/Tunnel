@@ -105,6 +105,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px
 .power.on { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 0 28px color-mix(in srgb, var(--accent) 55%, transparent); }
 .power.wait { border-color: var(--warn); color: var(--warn); animation: blink 1s infinite; }
 .hero .st { font-family: var(--f-display); font-size: 22px; }
+.hero .sshort { display: none; }
 .hero .sub { color: var(--muted); font-family: var(--f-mono); font-size: 12px; overflow-wrap: anywhere; }
 .stats { display: grid; grid-template-columns: repeat(3, auto); gap: 4px 22px; text-align: right; }
 .stats b { font-family: var(--f-mono); font-size: 16px; font-weight: 500; font-variant-numeric: tabular-nums; display: block; }
@@ -260,7 +261,9 @@ details.adv[open] > div { display: grid; gap: 11px; margin-top: 8px; }
   .box.hero { grid-template-columns: auto minmax(0, 1fr); padding: 12px 14px; gap: 6px 14px; text-align: left; justify-items: stretch; }
   .power { width: 62px; height: 62px; } .power svg { width: 26px; height: 26px; }
   .hero .st { font-size: 19px; }
-  .hero .sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px; }
+  .hero .sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
+  .hero .sfull { display: none; }
+  .hero .sshort { display: inline; }
   .stats { grid-column: 1 / -1; grid-template-columns: repeat(3, 1fr); text-align: center; padding-top: 6px; border-top: 1px solid var(--line); }
   .stats b { font-size: 15px; }
   #srvList { flex: 1; min-height: 0; overflow: auto; align-content: start; }
@@ -1026,7 +1029,7 @@ function renderServers() {
   } else {
     v.innerHTML = '<div class="inner">' + head +
       '<div class="box hero"><button class="power" id="power" aria-label="' + t('connectTo') + '">' + IC.power + '</button>' +
-      '<div><div class="st" id="heroSt"></div></div>' +
+      '<div style="min-width:0"><div class="st" id="heroSt"></div><div class="sub"><span class="sfull" id="heroSub"></span><span class="sshort" id="heroSub2"></span></div></div>' +
       '<div class="stats"><div><b id="hUp">—</b><span>' + t('uptime') + '</span></div><div><b id="hRx">—</b><span>' + t('down') + '</span></div><div><b id="hTx">—</b><span>' + t('up') + '</span></div></div></div>' +
       '<div class="list" id="srvList">' + S.servers.map(function (x) {
         return '<div class="srv' + (x.id === S.sel ? ' sel' : '') + '" data-id="' + x.id + '"><span class="dot"></span><div style="min-width:0"><div class="nm">' + esc(x.name) + '</div><div class="ad">' + esc(x.addr) + ' · ' + esc(x.host) + '</div></div>' +
@@ -1048,6 +1051,8 @@ function updHero() {
   var s = cur(); if (!$('power') || !s) return;
   $('power').className = 'power' + (RT.conn === 'on' ? ' on' : RT.conn === 'wait' ? ' wait' : '');
   $('heroSt').textContent = t('st_' + RT.conn);
+  $('heroSub').textContent = s.name + ' · ' + s.host + ' · ' + profName(s.profile);
+  $('heroSub2').textContent = s.name;
   var on = RT.conn === 'on', tr = RT.tr;
   $('hUp').textContent = on ? fmtDur(Date.now() - (tr && tr.since || RT.since)) : '—';
   $('hRx').textContent = on && tr ? fmtSize(tr.speed || 0) + '/' + t('perSec') : '—';
