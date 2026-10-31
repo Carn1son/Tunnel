@@ -58,6 +58,9 @@ print("apply_split: hook in place")
 # with these numbers (`closed` in the JSON), and the app adds them to the row of the same `id`.
 core = root / "core"
 vpnh = core / "include" / "vpn" / "vpn.h"
+# a named struct: an unnamed one given its name by typedef may not have default member initializers
+edit(vpnh, "typedef struct {\n    const SocketAddressStorage *src; // source address of connection\n",
+     "typedef struct VpnConnectionInfoEvent {\n    const SocketAddressStorage *src; // source address of connection\n")
 edit(vpnh, "    VpnFinalConnectionAction action; // final action\n} VpnConnectionInfoEvent;\n",
      "    VpnFinalConnectionAction action; // final action\n"
      "    uint64_t tn_id = 0;              // Tunnel: connection id\n"
