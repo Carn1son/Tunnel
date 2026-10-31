@@ -3,6 +3,7 @@ name: Build Tunnel
 on:
   push:
     branches: [ main ]
+    paths-ignore: [ 'site/**', '.github/workflows/site.yml' ]
   workflow_dispatch:
 
 permissions:
