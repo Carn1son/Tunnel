@@ -51,7 +51,9 @@ body { background: var(--bg); color: var(--fg); font-family: var(--f-body); font
 .tab .ls { display: none; }
 .rail .ver { margin-top: auto; padding: 8px 10px; font-family: var(--f-mono); font-size: 11px; color: var(--muted); }
 .view { overflow: auto; padding: 16px 18px 24px; min-width: 0; }
-.view > .inner { max-width: 980px; display: grid; gap: 14px; }
+.view > .inner { max-width: 1280px; display: grid; gap: 14px; }
+.subtabs { display: none !important; }
+.tab .bl, .btn .bl { display: inline; }
 
 /* common */
 h2 { font-family: var(--f-display); font-size: 20px; margin: 0; letter-spacing: .02em; }
@@ -146,6 +148,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px
 .x { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 18px; line-height: 1; padding: 2px 6px; border-radius: 4px; }
 .x:hover { color: var(--err); }
 .addrow { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto; gap: 8px; }
+.note.warn { border-left-color: var(--warn); background: color-mix(in srgb, var(--warn) 8%, transparent); color: var(--fg); }
 .note { font-size: 12px; color: var(--muted); padding: 8px 10px; border-left: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 6%, transparent); border-radius: 0 6px 6px 0; }
 
 /* log */
@@ -160,11 +163,13 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px
 .logwrap { max-height: calc(100vh - 230px); overflow: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
 
 /* settings overlay */
-.setpane { position: absolute; inset: 0; background: var(--bg); overflow: auto; z-index: 5; }
+.setpane { position: absolute; top: 0; right: 0; bottom: 0; width: clamp(380px, 33.34%, 600px); background: var(--bg); overflow: auto; z-index: 5; border-left: 1px solid var(--line); box-shadow: -18px 0 44px rgb(0 0 0 / .35); animation: slidein .16s ease-out; }
+@keyframes slidein { from { transform: translateX(24px); opacity: .4; } }
+.setshade { position: absolute; inset: 0; background: rgb(0 0 0 / .32); z-index: 4; }
 .main { position: relative; }
 .sethead { display: flex; align-items: center; gap: 10px; padding: 12px 18px; border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; z-index: 1; }
 .sethead b { font-family: var(--f-display); font-size: 18px; flex: 1; }
-.setbody { padding: 14px 18px 24px; max-width: 760px; display: grid; gap: 12px; }
+.setbody { padding: 14px 16px 24px; display: grid; gap: 12px; }
 fieldset { border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px 12px; margin: 0; display: grid; gap: 6px; background: var(--panel); }
 legend { font-size: 10.5px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); font-weight: 600; padding: 0 4px; }
 .about { display: flex; gap: 14px; align-items: center; }
@@ -190,7 +195,7 @@ details.adv[open] > div { display: grid; gap: 11px; margin-top: 8px; }
 @media (max-width: 760px) {
   .app { grid-template-rows: auto minmax(0, 1fr); }
   .main { grid-template-columns: minmax(0, 1fr) !important; grid-template-rows: minmax(0, 1fr) auto; }
-  .rail { grid-row: 2; flex-direction: row; justify-content: space-around; border-right: 0; border-top: 1px solid var(--line); padding: 4px 4px calc(4px + env(safe-area-inset-bottom)); }
+  .rail { grid-row: 2; flex-direction: row; justify-content: space-around; border-right: 0; border-top: 1px solid var(--line); padding: 4px; }
   .tab { flex-direction: column; gap: 2px; padding: 6px 4px; font-size: 10.5px; flex: 1; text-align: center; justify-content: center; }
   .tab .lf { display: none !important; }
   .tab .ls { display: block !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
@@ -215,6 +220,50 @@ details.adv[open] > div { display: grid; gap: 11px; margin-top: 8px; }
   .logwrap { max-height: none; }
   dialog { width: 96vw; }
   input, select, textarea { font-size: 16px; }
+
+  .view { overflow: hidden; display: flex; flex-direction: column; padding: 10px 12px; }
+  .view > .inner { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; max-width: none; }
+  h2 { font-size: 18px; }
+  .head { flex-wrap: nowrap; }
+  .head .btn .bl, #addProf .bl { display: none; }
+  .head .btn { padding: 7px 10px; }
+  .box { padding: 12px; gap: 8px; }
+  .empty { padding: 18px 10px; }
+  /* servers */
+  .box.hero { grid-template-columns: auto minmax(0, 1fr); padding: 12px 14px; gap: 6px 14px; text-align: left; justify-items: stretch; }
+  .power { width: 62px; height: 62px; } .power svg { width: 26px; height: 26px; }
+  .hero .st { font-size: 19px; }
+  .hero .sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px; }
+  .stats { grid-column: 1 / -1; grid-template-columns: repeat(3, 1fr); text-align: center; padding-top: 6px; border-top: 1px solid var(--line); }
+  .stats b { font-size: 15px; }
+  #srvList { flex: 1; min-height: 0; overflow: auto; align-content: start; }
+  /* routing */
+  .rgrid { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+  .profbox { display: flex; align-items: center; gap: 6px; padding: 6px !important; }
+  .profbox .eyebrow { display: none; }
+  #profList { display: flex; gap: 6px; overflow-x: auto; flex: 1; min-width: 0; scrollbar-width: none; }
+  #profList .prof { flex: none; padding: 6px 10px; }
+  #addProf { margin: 0 !important; flex: none; }
+  .profedit { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .profedit .rules { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  #pRules { flex: 1; min-height: 70px; resize: none; }
+  .profedit .used { display: none; }
+  /* split */
+  .splittop { gap: 8px; }
+  .splittop .srow small { display: none; }
+  .subtabs { display: flex !important; }
+  .splitcols { flex: 1; min-height: 0; display: flex !important; flex-direction: column; }
+  .splitcols.show-apps .col-ips, .splitcols.show-ips .col-apps { display: none; }
+  .splitcols .box { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .splitcols .box > .eyebrow { display: none; }
+  .splitcols .items { flex: 1; min-height: 0; overflow: auto; align-content: start; }
+  /* log */
+  .logbar { flex-wrap: nowrap; gap: 6px; } .logbar input { min-width: 0; flex: 1; } .logbar .btn { padding: 6px 9px; }
+  #logBody { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  #logBody .logwrap { flex: 1; min-height: 0; overflow: auto; }
+  /* settings take the whole screen on the phone */
+  .setpane { width: auto; left: 0; border-left: 0; box-shadow: none; animation: none; }
+  .setshade { display: none; }
 }
 @media (max-width: 760px) {
   .main { grid-template-columns: 56px minmax(0, 1fr); }
@@ -246,6 +295,7 @@ details.adv[open] > div { display: grid; gap: 11px; margin-top: 8px; }
   <div class="main">
     <nav class="rail" role="tablist" id="rail"></nav>
     <section class="view" id="view"></section>
+    <div class="setshade" id="setShade" hidden></div>
     <section class="setpane" id="setPane" hidden></section>
   </div>
 </div>
@@ -279,14 +329,14 @@ var L = {
   delServerQ: 'Удалить сервер?', delServerD: 'Сервер <b>{0}</b> будет удалён', created: 'Сервер <b>{0}</b> создан', deleted: 'Сервер <b>{0}</b> удалён', savedT: 'Изменения сохранены', linkCopied: 'Ссылка на сервер скопирована', duplicated: 'Сервер продублирован',
   importT: 'Импорт сервера', importD: 'Вставьте конфиг, выгруженный с сервера (TOML), или ссылку tt://. Можно выбрать файл.', importFile: 'Выбрать файл', importBad: 'Не удалось разобрать конфиг', linkLater: 'Ссылки tt:// разбираются только в приложении для Windows',
   profiles: 'Профили', addProfile: 'Добавить профиль', defaultProfile: 'Профиль по умолчанию', mode: 'Режим', modeVpn: 'Через VPN', modeBypass: 'В обход',
-  modeVpnD: 'Правила работают как список «пустить через VPN», остальное — напрямую.', modeBypassD: 'Весь трафик идёт через VPN, кроме подходящего под правила.',
+  modeVpnD: 'Правила работают как список «пустить через VPN», остальное — напрямую.', vpnOnlyN: 'Через VPN идут только адреса из списка ({0}). Всё остальное, например YouTube, если его нет в списке, — напрямую.', vpnOnlyNone: 'Список пуст — через VPN не пойдёт ничего. Добавьте правила или выберите «В обход».', modeBypassD: 'Весь трафик идёт через VPN, кроме подходящего под правила.',
   rules: 'Правила, по одному в строке', rulesH: 'Домены любого уровня, IP-адрес, IP с портом, IP с маской', delRules: 'Удалить все правила', rename: 'Переименовать', delProfile: 'Удалить профиль',
   usedBy: 'Используется серверами', none: 'нет', profileName: 'Название профиля', delProfileQ: 'Удалить профиль?', delRulesQ: 'Удалить все правила?',
   splitOn: 'Раздельное туннелирование', splitOnD: 'Работает поверх профиля маршрутизации. Правила по приложениям и IP применяются первыми.',
   splitMode: 'Режим', sExclude: 'Выбранное — в обход VPN', sInclude: 'Только выбранное — через VPN',
   sExcludeD: 'Всё идёт через VPN, кроме отмеченных приложений и адресов.', sIncludeD: 'Через VPN идут только отмеченные приложения и адреса, остальное — напрямую.',
   apps: 'Приложения', pickApps: 'Выбрать приложения', installed: 'Приложения на телефоне', searchApps: 'Поиск приложения…', alwaysOn: 'Постоянная VPN', alwaysOnD: 'Включается в настройках Android: VPN → Tunnel → «Постоянная VPN»', openSettings: 'Открыть настройки', aboutDA: 'Клиент TrustTunnel для Android. Подключается только к вашим собственным серверам.', androidIncNote: 'На Android выбранные приложения целиком идут через VPN; адреса работают, когда приложения не выбраны.', addApp: 'Добавить .exe', fromRunning: 'Из запущенных', appsEmpty: 'Приложения не добавлены',
-  ips: 'IP-адреса и подсети', ipPh: '192.168.1.0/24, 8.8.8.8, 1.2.3.4:443', notePh: 'Подпись (необязательно)', add: 'Добавить', ipsEmpty: 'Адреса не добавлены', badIp: 'Формат: IP, IP:порт, IP/маска',
+  ips: 'IP-адреса и подсети', ipsS: 'IP-адреса', ipPh: '192.168.1.0/24, 8.8.8.8, 1.2.3.4:443', notePh: 'Подпись (необязательно)', add: 'Добавить', ipsEmpty: 'Адреса не добавлены', badIp: 'Формат: IP, IP:порт, IP/маска',
   running: 'Запущенные приложения', pick: 'Выбрать',
   logSearch: 'Фильтр: домен, IP, приложение…', pause: 'Пауза', resume: 'Продолжить', clear: 'Очистить',
   logEmptyT: 'Соединений пока нет', logEmptyD: 'Журнал показывает, куда идёт трафик и как он маршрутизируется. Подключитесь к серверу и откройте сайт.',
@@ -324,14 +374,14 @@ var L = {
   delServerQ: 'Delete server?', delServerD: 'Server <b>{0}</b> will be deleted', created: 'Server <b>{0}</b> created', deleted: 'Server <b>{0}</b> deleted', savedT: 'Changes saved', linkCopied: 'Server link copied', duplicated: 'Server duplicated',
   importT: 'Import server', importD: 'Paste the config exported by the server (TOML) or a tt:// link. You can also choose a file.', importFile: 'Choose file', importBad: 'Could not parse the config', linkLater: 'tt:// links are decoded only in the Windows app',
   profiles: 'Profiles', addProfile: 'Add profile', defaultProfile: 'Default profile', mode: 'Mode', modeVpn: 'VPN', modeBypass: 'Bypass',
-  modeVpnD: 'Rules act as an allow list for the tunnel, everything else goes direct.', modeBypassD: 'All traffic goes through VPN except what matches the rules.',
+  modeVpnD: 'Rules act as an allow list for the tunnel, everything else goes direct.', vpnOnlyN: 'Only the listed addresses ({0}) go through the VPN. Everything else goes direct.', vpnOnlyNone: 'The list is empty: nothing goes through the VPN. Add rules or choose Bypass.', modeBypassD: 'All traffic goes through VPN except what matches the rules.',
   rules: 'Rules, one per line', rulesH: 'Domains of any level, IP address, IP with port, IP with mask', delRules: 'Delete all rules', rename: 'Rename', delProfile: 'Delete profile',
   usedBy: 'Used by servers', none: 'none', profileName: 'Profile name', delProfileQ: 'Delete profile?', delRulesQ: 'Delete all rules?',
   splitOn: 'Split tunneling', splitOnD: 'Works on top of the routing profile. App and IP rules are applied first.',
   splitMode: 'Mode', sExclude: 'Selected bypass VPN', sInclude: 'Only selected use VPN',
   sExcludeD: 'Everything goes through VPN except the checked apps and addresses.', sIncludeD: 'Only the checked apps and addresses go through VPN, the rest goes direct.',
   apps: 'Apps', pickApps: 'Choose apps', installed: 'Apps on this phone', searchApps: 'Search apps…', alwaysOn: 'Always-on VPN', alwaysOnD: 'Turn it on in Android settings: VPN → Tunnel → Always-on VPN', openSettings: 'Open settings', aboutDA: 'TrustTunnel client for Android. Connects only to servers you run yourself.', androidIncNote: 'On Android the chosen apps go through the VPN entirely; addresses apply when no apps are chosen.', addApp: 'Add .exe', fromRunning: 'From running', appsEmpty: 'No apps added',
-  ips: 'IP addresses and subnets', ipPh: '192.168.1.0/24, 8.8.8.8, 1.2.3.4:443', notePh: 'Label (optional)', add: 'Add', ipsEmpty: 'No addresses added', badIp: 'Format: IP, IP:port, IP/mask',
+  ips: 'IP addresses and subnets', ipsS: 'IP addresses', ipPh: '192.168.1.0/24, 8.8.8.8, 1.2.3.4:443', notePh: 'Label (optional)', add: 'Add', ipsEmpty: 'No addresses added', badIp: 'Format: IP, IP:port, IP/mask',
   running: 'Running apps', pick: 'Pick',
   logSearch: 'Filter: domain, IP, app…', pause: 'Pause', resume: 'Resume', clear: 'Clear',
   logEmptyT: 'No connections yet', logEmptyD: 'The log shows where your traffic goes and how it is routed. Connect to your server and open a website.',
@@ -458,7 +508,7 @@ var TABS = ['servers', 'routing', 'split', 'log'];
 /* ---------- shell ---------- */
 function renderShell() {
   document.documentElement.dataset.ui = S.theme; document.documentElement.lang = S.lang;
-  $('rail').innerHTML = TABS.map(function (k) { return '<button class="tab" role="tab" type="button" data-tab="' + k + '" aria-selected="' + (S.tab === k && !RT.setOpen) + '">' + IC[k] + '<span class="lf">' + t(k) + '</span><span class="ls">' + t(k + 'S') + '</span></button>'; }).join('') + '<div class="ver">Tunnel ' + VERSION + '</div>';
+  $('rail').innerHTML = TABS.map(function (k) { return '<button class="tab" role="tab" type="button" data-tab="' + k + '" aria-selected="' + (S.tab === k) + '">' + IC[k] + '<span class="lf">' + t(k) + '</span><span class="ls">' + t(k + 'S') + '</span></button>'; }).join('') + '<div class="ver">Tunnel ' + VERSION + '</div>';
   $('uiBtn').innerHTML = S.theme === 'dark' ? IC.sun : IC.moon; $('uiBtn').title = t('theme');
   $('setBtn').title = t('settings'); $('setBtn').setAttribute('aria-pressed', String(RT.setOpen));
   renderStatus();
@@ -472,13 +522,14 @@ function renderStatus() {
 }
 function render() {
   renderShell();
-  $('setPane').hidden = !RT.setOpen;
-  if (RT.setOpen) { renderSettings(); return; }
+  $('setPane').hidden = !RT.setOpen; $('setShade').hidden = !RT.setOpen;
+  if (RT.setOpen) renderSettings();
   ({ servers: renderServers, routing: renderRouting, split: renderSplit, log: renderLog })[S.tab]();
 }
 $('rail').onclick = function (e) { var b = e.target.closest('.tab'); if (!b) return; S.tab = b.dataset.tab; RT.setOpen = false; persist(); render(); };
 $('uiBtn').onclick = function () { S.theme = S.theme === 'dark' ? 'light' : 'dark'; persist(); render(); };
 $('setBtn').onclick = function () { RT.setOpen = !RT.setOpen; render(); };
+$('setShade').onclick = function () { RT.setOpen = false; render(); };
 document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && RT.setOpen && !$('dlg').open) { RT.setOpen = false; render(); } });
 
 /* ---------- helpers ---------- */
@@ -535,8 +586,8 @@ function onVpnState(st) {
   if (st === 0 && RT.reconnect) { RT.reconnect = false; connect(); return; }
   refreshConn();
 }
-function refreshConn() { renderStatus(); if (!RT.setOpen && S.tab === 'servers') updHero(); }
-setInterval(function () { if (RT.conn === 'on' && S && !RT.setOpen && S.tab === 'servers') updHero(); }, 1000);
+function refreshConn() { renderStatus(); if (S.tab === 'servers') updHero(); }
+setInterval(function () { if (RT.conn === 'on' && S && S.tab === 'servers') updHero(); }, 1000);
 function onConn(info) {
   if (!info) return;
   var d = info.date ? new Date(info.date) : new Date();
@@ -549,7 +600,7 @@ function addLog(r) {
   RT.count++; if (r.route === 'vpn') RT.viaVpn++;
   if (RT.paused) return;
   RT.log.unshift(r); if (RT.log.length > 1000) RT.log.pop();
-  if (!RT.setOpen && S.tab === 'log') renderLogRows();
+  if (S.tab === 'log') renderLogRows();
 }
 function onTray(m) {
   if (m.action === 'connect') { if (RT.conn === 'off') connect(); }
@@ -629,7 +680,7 @@ function demoTick() {
 /* ---------- servers ---------- */
 function renderServers() {
   var s = cur(), v = $('view');
-  var head = '<div class="head"><h2>' + t('servers') + '</h2><span class="grow"></span><button class="btn" id="impBtn">' + IC.imp + t('import') + '</button><button class="btn primary" id="addBtn">' + IC.plus + t('addServer') + '</button></div>';
+  var head = '<div class="head"><h2>' + t('servers') + '</h2><span class="grow"></span><button class="btn" id="impBtn" title="' + t('import') + '">' + IC.imp + '<span class="bl">' + t('import') + '</span></button><button class="btn primary" id="addBtn" title="' + t('addServer') + '">' + IC.plus + '<span class="bl">' + t('addServer') + '</span></button></div>';
   if (!S.servers.length) {
     v.innerHTML = '<div class="inner">' + head + '<div class="box empty"><svg viewBox="0 0 100 100" width="64" height="64"><use href="#logo"/></svg><b>' + t('emptyT') + '</b><span>' + t('emptyD') + '</span><div class="links"><button class="btn" id="impBtn2">' + t('import') + '</button><button class="btn primary" id="addBtn2">' + t('create') + '</button></div></div></div>';
     $('impBtn2').onclick = function () { importDlg(); }; $('addBtn2').onclick = function () { serverDlg(null); };
@@ -776,13 +827,13 @@ function renderRouting() {
   var p = S.profiles.filter(function (q) { return q.id === RT.profSel; })[0];
   var used = S.servers.filter(function (s) { return s.profile === p.id; }).map(function (s) { return esc(s.name); }).join(', ') || t('none');
   $('view').innerHTML = '<div class="inner"><div class="head"><h2>' + t('routing') + '</h2></div><div class="rgrid">' +
-    '<div class="box" style="padding:8px"><div class="eyebrow" style="padding:4px 6px">' + t('profiles') + '</div><div id="profList">' + S.profiles.map(function (q) {
+    '<div class="box profbox" style="padding:8px"><div class="eyebrow" style="padding:4px 6px">' + t('profiles') + '</div><div id="profList">' + S.profiles.map(function (q) {
       return '<div class="prof' + (q.id === p.id ? ' sel' : '') + '" data-id="' + q.id + '"><b>' + esc(q.name) + '</b><span class="tag' + (q.mode === 'vpn' ? ' a' : '') + '">' + (q.mode === 'vpn' ? t('modeVpn') : t('modeBypass')) + '</span></div>';
-    }).join('') + '</div><button class="btn sm" id="addProf" style="margin:6px">' + IC.plus + t('addProfile') + '</button></div>' +
-    '<div class="box"><div class="head"><b style="font-size:16px;flex:1">' + esc(p.name) + '</b><button class="iconbtn" id="profMenu">' + IC.dots + '</button></div>' +
-    '<div class="field"><span>' + t('mode') + '</span><div class="seg" id="pMode"><button type="button" data-v="vpn" aria-pressed="' + (p.mode === 'vpn') + '">' + t('modeVpn') + '</button><button type="button" data-v="bypass" aria-pressed="' + (p.mode === 'bypass') + '">' + t('modeBypass') + '</button></div><small>' + (p.mode === 'vpn' ? t('modeVpnD') : t('modeBypassD')) + '</small></div>' +
-    '<label class="field"><span>' + t('rules') + '</span><textarea id="pRules" style="min-height:260px" spellcheck="false" placeholder="example.com\n1.2.3.4\n1.2.3.4:443\n10.0.0.0/8">' + esc(p.rules) + '</textarea><small>' + t('rulesH') + '</small></label>' +
-    '<div class="muted" style="font-size:12px">' + t('usedBy') + ': ' + used + '</div></div></div></div>';
+    }).join('') + '</div><button class="btn sm" id="addProf" style="margin:6px" title="' + t('addProfile') + '">' + IC.plus + '<span class="bl">' + t('addProfile') + '</span></button></div>' +
+    '<div class="box profedit"><div class="head"><b style="font-size:16px;flex:1">' + esc(p.name) + '</b><button class="iconbtn" id="profMenu">' + IC.dots + '</button></div>' +
+    '<div class="field"><span>' + t('mode') + '</span><div class="seg" id="pMode"><button type="button" data-v="vpn" aria-pressed="' + (p.mode === 'vpn') + '">' + t('modeVpn') + '</button><button type="button" data-v="bypass" aria-pressed="' + (p.mode === 'bypass') + '">' + t('modeBypass') + '</button></div><small>' + (p.mode === 'vpn' ? t('modeVpnD') : t('modeBypassD')) + '</small>' + (p.mode === 'vpn' ? '<div class="note warn">' + (lines(p.rules).length ? t('vpnOnlyN', lines(p.rules).length) : t('vpnOnlyNone')) + '</div>' : '') + '</div>' +
+    '<label class="field rules"><span>' + t('rules') + '</span><textarea id="pRules" spellcheck="false" placeholder="example.com\n1.2.3.4\n1.2.3.4:443\n10.0.0.0/8">' + esc(p.rules) + '</textarea><small>' + t('rulesH') + '</small></label>' +
+    '<div class="muted used" style="font-size:12px">' + t('usedBy') + ': ' + used + '</div></div></div></div>';
   $('profList').onclick = function (e) { var r = e.target.closest('.prof'); if (r) { RT.profSel = r.dataset.id; render(); } };
   $('pMode').onclick = function (e) { var b = e.target.closest('button'); if (!b || b.dataset.v === p.mode) return; p.mode = b.dataset.v; persist(); render(); };
   $('pRules').oninput = function () { p.rules = this.value; persist(); };
@@ -811,15 +862,17 @@ function validIp(v) {
 function renderSplit() {
   var sp = S.split;
   $('view').innerHTML = '<div class="inner"><div class="head"><h2>' + t('split') + '</h2></div>' +
-    '<div class="box"><div class="srow"><div><b>' + t('splitOn') + '</b><small>' + t('splitOnD') + '</small></div>' + sw('spOn', sp.on) + '</div>' +
+    '<div class="box splittop"><div class="srow"><div><b>' + t('splitOn') + '</b><small>' + t('splitOnD') + '</small></div>' + sw('spOn', sp.on) + '</div>' +
     '<div class="field"' + (sp.on ? '' : ' style="opacity:.5;pointer-events:none"') + '><span>' + t('splitMode') + '</span><div class="seg" id="spMode"><button type="button" data-v="exclude" aria-pressed="' + (sp.mode === 'exclude') + '">' + t('sExclude') + '</button><button type="button" data-v="include" aria-pressed="' + (sp.mode === 'include') + '">' + t('sInclude') + '</button></div><div class="note">' + (sp.mode === 'exclude' ? t('sExcludeD') : t('sIncludeD') + (ANDROID ? '<br>' + t('androidIncNote') : '') + (sp.apps.some(function (a) { return a.on; }) || sp.ips.some(function (i) { return i.on; }) ? '' : '<br>' + t('splitIncEmpty'))) + '</div></div></div>' +
-    '<div class="two" style="align-items:start' + (sp.on ? '' : ';opacity:.5;pointer-events:none') + '">' +
-      '<div class="box"><div class="head"><span class="eyebrow" style="flex:1">' + t('apps') + ' · ' + sp.apps.length + '</span>' + (ANDROID ? '<button class="btn sm primary" id="appRun">' + IC.plus + t('pickApps') + '</button>' : '<button class="btn sm" id="appRun">' + t('fromRunning') + '</button><button class="btn sm primary" id="appAdd">' + IC.plus + t('addApp') + '</button>') + '</div>' +
+    '<div class="seg subtabs" id="spTabs"><button type="button" data-v="apps" aria-pressed="' + (RT.splitTab !== 'ips') + '">' + t('apps') + ' · ' + sp.apps.length + '</button><button type="button" data-v="ips" aria-pressed="' + (RT.splitTab === 'ips') + '">' + t('ipsS') + ' · ' + sp.ips.length + '</button></div>' +
+    '<div class="two splitcols show-' + (RT.splitTab === 'ips' ? 'ips' : 'apps') + '" style="align-items:start' + (sp.on ? '' : ';opacity:.5;pointer-events:none') + '">' +
+      '<div class="box col-apps"><div class="head"><span class="eyebrow" style="flex:1">' + t('apps') + ' · ' + sp.apps.length + '</span>' + (ANDROID ? '<button class="btn sm primary" id="appRun">' + IC.plus + t('pickApps') + '</button>' : '<button class="btn sm" id="appRun">' + t('fromRunning') + '</button><button class="btn sm primary" id="appAdd">' + IC.plus + t('addApp') + '</button>') + '</div>' +
       '<div class="items" id="appList">' + (sp.apps.length ? sp.apps.map(function (a) { return '<div class="item' + (a.on ? '' : ' off') + '" data-id="' + a.id + '">' + appIco(a.name, a.icon) + '<div class="t"><b>' + esc(a.name) + '</b><small title="' + esc(a.path) + '">' + esc(a.path) + '</small></div>' + sw('ap_' + a.id, a.on) + '<button class="x" data-del aria-label="' + t('del') + '">×</button></div>'; }).join('') : '<div class="empty" style="padding:18px">' + t('appsEmpty') + '</div>') + '</div></div>' +
-      '<div class="box"><div class="eyebrow">' + t('ips') + ' · ' + sp.ips.length + '</div>' +
+      '<div class="box col-ips"><div class="eyebrow">' + t('ips') + ' · ' + sp.ips.length + '</div>' +
       '<div class="addrow"><input type="text" id="ipIn" class="mono" placeholder="' + t('ipPh') + '" spellcheck="false"><input type="text" id="ipNote" placeholder="' + t('notePh') + '"><button class="btn primary" id="ipAdd">' + t('add') + '</button></div><small id="ipErr" class="bad"></small>' +
       '<div class="items" id="ipList">' + (sp.ips.length ? sp.ips.map(function (i) { return '<div class="item' + (i.on ? '' : ' off') + '" data-id="' + i.id + '" style="grid-template-columns:minmax(0,1fr) auto auto"><div class="t"><b class="mono" style="font-weight:500">' + esc(i.v) + '</b><small>' + esc(i.note || '') + '</small></div>' + sw('ip_' + i.id, i.on) + '<button class="x" data-del aria-label="' + t('del') + '">×</button></div>'; }).join('') : '<div class="empty" style="padding:18px">' + t('ipsEmpty') + '</div>') + '</div></div>' +
     '</div></div>';
+  $('spTabs').onclick = function (e) { var b = e.target.closest('button'); if (!b) return; RT.splitTab = b.dataset.v; render(); };
   $('spOn').onchange = function () { sp.on = this.checked; persist(); render(); };
   $('spMode').onclick = function (e) { var b = e.target.closest('button'); if (!b) return; sp.mode = b.dataset.v; persist(); render(); };
   function listHandlers(listId, arr) {
@@ -870,7 +923,7 @@ function appsDlg(all) {
     if (e.target.checked) addApp(r.name, r.path, r.icon, true);
     else { S.split.apps = S.split.apps.filter(function (a) { return a.path !== p; }); persist(); }
   };
-  $('dlg').addEventListener('close', function () { if (S.tab === 'split' && !RT.setOpen) render(); }, { once: true });
+  $('dlg').addEventListener('close', function () { if (S.tab === 'split') render(); }, { once: true });
 }
 
 /* ---------- connection log ---------- */

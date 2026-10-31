@@ -21,6 +21,11 @@ import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.FrameLayout
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.content.FileProvider
 import org.json.JSONArray
 import org.json.JSONObject
@@ -41,6 +46,7 @@ class MainActivity : Activity() {
     }
 
     private lateinit var web: WebView
+    private lateinit var root: FrameLayout
     private val io = Executors.newCachedThreadPool()
     private var pageReady = false
     private var pendingLink: String? = null
@@ -74,7 +80,18 @@ class MainActivity : Activity() {
                 return true
             }
         }
-        setContentView(web)
+        // the page is laid out between the status bar and the navigation bar (Android 15 draws apps under them by default)
+        root = FrameLayout(this)
+        root.addView(web, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        setContentView(root)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+            v.setPadding(bars.left, bars.top, bars.right, maxOf(bars.bottom, ime.bottom))
+            WindowInsetsCompat.CONSUMED
+        }
+        applyTheme(Vpn.prefs(this).getString("theme", "dark") != "light")
         web.loadUrl("file:///android_asset/index.html")
         Vpn.stateListeners += stateListener
         Vpn.connListeners += connListener
@@ -143,8 +160,11 @@ class MainActivity : Activity() {
             }
             "save" -> {
                 val st = m.optString("state")
-                val lang = runCatching { JSONObject(st).optString("lang", "ru") }.getOrDefault("ru")
-                Vpn.prefs(this).edit().putString("state", st).putString("lang", lang).apply()
+                val o = runCatching { JSONObject(st) }.getOrNull()
+                val lang = o?.optString("lang", "ru") ?: "ru"
+                val theme = o?.optString("theme", "dark") ?: "dark"
+                Vpn.prefs(this).edit().putString("state", st).putString("lang", lang).putString("theme", theme).apply()
+                applyTheme(theme != "light")
             }
             "connect" -> {
                 val prep = VpnService.prepare(this)
@@ -170,6 +190,18 @@ class MainActivity : Activity() {
             "upd-download" -> io.execute { reply(req, downloadUpdate()) }
             "upd-install" -> installUpdate()
             "quit" -> finish()
+        }
+    }
+
+    /** System bars follow the page theme: dark bars with light icons, or the other way round. */
+    private fun applyTheme(dark: Boolean) {
+        val bar = if (dark) 0xFF121212.toInt() else 0xFFFFFFFF.toInt()
+        root.setBackgroundColor(bar)
+        web.setBackgroundColor(if (dark) 0xFF0A0A0A.toInt() else 0xFFEBEBEB.toInt())
+        @Suppress("DEPRECATION") run { window.statusBarColor = bar; window.navigationBarColor = bar }
+        WindowInsetsControllerCompat(window, root).apply {
+            isAppearanceLightStatusBars = !dark
+            isAppearanceLightNavigationBars = !dark
         }
     }
 
