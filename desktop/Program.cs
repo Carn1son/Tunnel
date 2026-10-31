@@ -361,6 +361,21 @@ namespace Tunnel
                     case "upd-check": Reply(req, await updater.Check()); break;
                     case "upd-download": Reply(req, await updater.Download()); break;
                     case "upd-install": if (updater.Install()) Quit(false); break;
+                    case "ssh":
+                        {
+                            var conn = m.ContainsKey("conn") ? m["conn"] as Dictionary<string, object> : null;
+                            string cmdText = S(m, "cmd"), stdin = S(m, "stdin");
+                            int to = m.ContainsKey("timeout") ? Convert.ToInt32(m["timeout"]) : 120;
+                            try { Reply(req, await Task.Run(() => Ssh.Exec(conn, cmdText, stdin, to))); }
+                            catch (Ssh.SshError ex) { Reply(req, new Dictionary<string, object> { { "fp", ex.Fp } }, ex.Code + ": " + ex.Message); }
+                            catch (Exception ex) { Reply(req, null, "connect: " + ex.Message); }
+                            break;
+                        }
+                    case "ssh-drop": if (m.ContainsKey("conn")) Ssh.Drop(m["conn"] as Dictionary<string, object>); break;
+                    case "pick-key":
+                        using (var d = new OpenFileDialog { Title = T("Приватный ключ SSH", "SSH private key"), Filter = T("Все файлы", "All files") + " (*.*)|*.*" })
+                            Reply(req, d.ShowDialog(this) == DialogResult.OK ? File.ReadAllText(d.FileName) : null);
+                        break;
                     case "open-url": External(S(m, "url")); break;
                     case "theme": TitleBar(!(m.ContainsKey("dark") && Convert.ToBoolean(m["dark"]))); break;
                     case "quit": Quit(true); break;

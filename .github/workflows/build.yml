@@ -103,12 +103,16 @@ jobs:
           if ! dotnet build desktop/Tunnel.csproj -c Release -nologo -p:TnFileVersion=${{ needs.meta.outputs.file }} > build.log 2>&1; then
             grep -iE "error" build.log | sort -u | head -30 | while IFS= read -r l; do echo "::error::$l"; done; tail -5 build.log; exit 1
           fi
-          mkdir -p dist && cp "$(find desktop/bin -name Tunnel.exe | head -1)" dist/
-          ls -la dist
+          EXE="$(find desktop/bin -name Tunnel.exe | head -1)"
+          mkdir -p dist/app && cp "$EXE" dist/
+          [ -f "$EXE.config" ] && cp "$EXE.config" dist/app/   # assembly binding redirects for the libraries
+          # libraries next to the exe (SSH for the Server tab); the WebView2 ones are already inside the exe
+          for f in "$(dirname "$EXE")"/*.dll; do case "$(basename "$f")" in Microsoft.Web.WebView2.*) ;; *) cp "$f" dist/app/ ;; esac; done
+          ls -la dist dist/app
       - uses: actions/upload-artifact@v4
         with:
           name: exe
-          path: dist/Tunnel.exe
+          path: dist/
 
   installer:
     name: Installer

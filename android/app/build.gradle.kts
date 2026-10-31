@@ -57,4 +57,7 @@ dependencies {
     implementation("androidx.core:core-ktx:1.16.0")
     implementation("androidx.appcompat:appcompat:1.7.1")
     implementation("com.google.android.material:material:1.12.0")
+    // SSH for the Server tab; Bouncy Castle adds the ed25519 keys Android itself lacks
+    implementation("com.github.mwiede:jsch:0.2.20")
+    implementation("org.bouncycastle:bcprov-jdk18on:1.78.1")
 }

@@ -160,8 +160,22 @@ textarea.lines4 { min-height: 0; padding-bottom: 0; height: calc(6em + 9px); } /
 .setfoot .lk small { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .setfoot .lk i { font-style: normal; color: var(--muted); font-size: 13px; }
 .credits a { color: var(--accent); text-decoration: none; } .credits a:hover { text-decoration: underline; } .nw { white-space: nowrap; }
+.tag.warnc { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); }
+.admstat .head { flex-wrap: nowrap; } .admname { font-size: 16px; } .admhost { font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admmeta { display: flex; flex-wrap: wrap; gap: 4px 14px; font-family: var(--f-mono); font-size: 11.5px; color: var(--muted); }
+.admcta { justify-items: start; } .admjob b { font-weight: 600; }
+.admlog { margin: 0; max-height: 220px; overflow: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; font-family: var(--f-mono); font-size: 11px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; color: var(--muted); }
+.admlog.big { max-height: 60vh; }
+.chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; } .chips .prof { font: inherit; background: none; color: inherit; flex: none; }
+.udot { width: 9px; height: 9px; border-radius: 50%; background: var(--line); } .udot.on { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+.online { color: var(--accent); }
+.utraffic { text-align: right; } .utraffic b { font-family: var(--f-mono); font-weight: 500; font-size: 13px; display: block; } .utraffic small { font-family: var(--f-mono); font-size: 10.5px; color: var(--muted); white-space: nowrap; }
+.admtot { font-size: 11.5px; }
+.ok { color: var(--accent); } .bad { color: var(--err); }
+.wq { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; align-items: start; }
+.wq > i { font-style: normal; width: 22px; height: 22px; border-radius: 50%; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); font-size: 11.5px; font-weight: 600; display: grid; place-items: center; margin-top: 18px; }
 .note.warn { border-left-color: var(--warn); background: color-mix(in srgb, var(--warn) 8%, transparent); color: var(--fg); }
-.note { font-size: 12px; color: var(--muted); padding: 8px 10px; border-left: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 6%, transparent); border-radius: 0 6px 6px 0; }
+.note { overflow-wrap: anywhere; font-size: 12px; color: var(--muted); padding: 8px 10px; border-left: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 6%, transparent); border-radius: 0 6px 6px 0; }
 
 /* log */
 .logbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
@@ -269,6 +283,13 @@ details.adv[open] > div { display: grid; gap: 11px; margin-top: 8px; }
   .splitcols .box { flex: 1; min-height: 0; display: flex; flex-direction: column; }
   .splitcols .box > .eyebrow { display: none; }
   .splitcols .items { flex: 1; min-height: 0; overflow: auto; align-content: start; }
+  /* server tab */
+  .admbody { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+  .admusers { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .admusers .items { flex: 1; min-height: 0; overflow: auto; align-content: start; }
+  .admjob { flex: 1; min-height: 0; display: flex; flex-direction: column; } .admjob .admlog { flex: 1; max-height: none; }
+  .utraffic small { display: none; }
+  .wq { grid-template-columns: minmax(0, 1fr); } .wq > i { display: none; }
   /* log */
   .logbar { flex-wrap: nowrap; gap: 6px; } .logbar input { min-width: 0; flex: 1; } .logbar .btn { padding: 6px 9px; }
   #logBody { flex: 1; min-height: 0; display: flex; flex-direction: column; }
@@ -315,6 +336,305 @@ details.adv[open] > div { display: grid; gap: 11px; margin-top: 8px; }
 <dialog id="dlg"></dialog>
 <input type="file" id="fileIn" hidden>
 
+<script type="text/plain" id="tunnelctl">
+#!/bin/sh
+# Tunnel server helper: installs and manages a TrustTunnel endpoint for the Tunnel app.
+# The app uploads this file over SSH and runs:  sh tunnelctl.sh <command> [args]
+# Commands print one JSON document (or progress lines for install/update) and exit non-zero on failure.
+# Stats: a systemd timer runs "collect" every 5 minutes at the lowest CPU and IO priority.
+
+DIR="${TT_DIR:-/opt/trusttunnel}"
+STATS="$DIR/tunnel-stats.tsv"
+METRICS="127.0.0.1:1987"
+INSTALL_URL="https://raw.githubusercontent.com/TrustTunnel/TrustTunnel/refs/heads/master/scripts/install.sh"
+PATH="$PATH:/usr/sbin:/sbin:/usr/local/bin"
+USER="${USER:-$(id -un 2>/dev/null || echo root)}"; export USER PATH   # the official installer needs $USER
+
+say() { printf '%s\n' "$*"; }
+die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
+# JSON string
+js() { printf '"%s"' "$(printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr -d '\n\r\t')"; }
+need_root() { [ "$(id -u)" = 0 ] || die "root rights are needed (run as root or allow sudo)"; }
+valid_name() { printf '%s' "$1" | grep -Eq '^[A-Za-z0-9_.@-]{1,64}$' || die "bad user name: use letters, digits, . _ - @"; }
+valid_pass() { printf '%s' "$1" | grep -Eq '^[A-Za-z0-9_.@%+=!#-]{4,128}$' || die "bad password: 4-128 characters, no spaces or quotes"; }
+
+fetch() { # url -> stdout
+  if command -v curl >/dev/null 2>&1; then curl -fsSL --max-time "${2:-60}" "$1"
+  elif command -v wget >/dev/null 2>&1; then wget -qO- -T "${2:-60}" "$1"
+  else return 127; fi
+}
+
+ensure_tools() { # curl and tar for the official installer
+  for t in curl tar; do
+    command -v "$t" >/dev/null 2>&1 && continue
+    say "Installing $t…"
+    if command -v apt-get >/dev/null 2>&1; then DEBIAN_FRONTEND=noninteractive apt-get update -qq >/dev/null 2>&1; DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "$t" >/dev/null 2>&1
+    elif command -v dnf >/dev/null 2>&1; then dnf install -y -q "$t" >/dev/null 2>&1
+    elif command -v yum >/dev/null 2>&1; then yum install -y -q "$t" >/dev/null 2>&1
+    elif command -v apk >/dev/null 2>&1; then apk add -q "$t" >/dev/null 2>&1
+    fi
+    command -v "$t" >/dev/null 2>&1 || die "cannot install $t"
+  done
+}
+
+# ---------- credentials.toml as "name<TAB>password" lines
+creds_file() {
+  f=$(sed -n 's/^[[:space:]]*credentials_file[[:space:]]*=[[:space:]]*"\(.*\)".*/\1/p' "$DIR/vpn.toml" 2>/dev/null | head -1)
+  [ -n "$f" ] || f="credentials.toml"
+  case "$f" in /*) printf '%s' "$f" ;; *) printf '%s/%s' "$DIR" "$f" ;; esac
+}
+creds_read() {
+  awk '
+    /^[[:space:]]*\[\[client\]\]/ { if (u != "") print u "\t" p; u=""; p=""; next }
+    /^[[:space:]]*username[[:space:]]*=/ { s=$0; sub(/^[^=]*=[[:space:]]*/, "", s); gsub(/^"|"[[:space:]]*$/, "", s); u=s; next }
+    /^[[:space:]]*password[[:space:]]*=/ { s=$0; sub(/^[^=]*=[[:space:]]*/, "", s); gsub(/^"|"[[:space:]]*$/, "", s); p=s; next }
+    END { if (u != "") print u "\t" p }' "$(creds_file)" 2>/dev/null
+}
+creds_write() { # stdin: name<TAB>password lines
+  f=$(creds_file); tmp="$f.tmp.$$"
+  awk -F '\t' 'NF >= 2 && $1 != "" { printf "[[client]]\nusername = \"%s\"\npassword = \"%s\"\n\n", $1, $2 }' > "$tmp" || die "cannot write $f"
+  chmod 600 "$tmp" 2>/dev/null; mv "$tmp" "$f"
+}
+
+restart_endpoint() {
+  if command -v systemctl >/dev/null 2>&1 && systemctl list-unit-files trusttunnel.service >/dev/null 2>&1; then
+    systemctl restart trusttunnel >/dev/null 2>&1 || die "trusttunnel did not restart: $(journalctl -u trusttunnel -n 5 --no-pager 2>/dev/null | tail -3)"
+  fi
+}
+
+# ---------- statistics: lifetime traffic and last activity per user, kept across endpoint restarts
+collect() {
+  [ -f "$DIR/vpn.toml" ] || return 0
+  raw=$(fetch "http://$METRICS/clients" 3 2>/dev/null) || return 0
+  now=$(date +%s)
+  touch "$STATS"
+  printf '%s' "$raw" | tr -d '[]\n' | sed 's/},[[:space:]]*{/}\n{/g' | awk -v now="$now" -v stats="$STATS" '
+    function field(s, k,   r) {
+      if (match(s, "\"" k "\":[^,}]*")) { r = substr(s, RSTART + length(k) + 3, RLENGTH - length(k) - 3); gsub(/"/, "", r); return r }
+      return ""
+    }
+    BEGIN { FS = "\t"; while ((getline l < stats) > 0) { split(l, a, "\t"); n = a[1]; tin[n] = a[2]; tout[n] = a[3]; rin[n] = a[4]; rout[n] = a[5]; seen[n] = a[6]; ip[n] = a[7]; known[n] = 1; had[n] = 1 } }
+    /username/ {
+      n = field($0, "username"); if (n == "") next
+      i = field($0, "inbound") + 0; o = field($0, "outbound") + 0; s = field($0, "sessions") + 0; addr = field($0, "ip")
+      di = (i >= rin[n] + 0) ? i - rin[n] : i; do_ = (o >= rout[n] + 0) ? o - rout[n] : o
+      tin[n] += di; tout[n] += do_; rin[n] = i; rout[n] = o
+      if (s > 0 || ((di > 0 || do_ > 0) && (n in had))) seen[n] = now   # traffic from before the first count is not "just now"
+      if (addr != "" && addr != "null") ip[n] = addr
+      sess[n] = s; known[n] = 1
+    }
+    END { for (n in known) printf "%s\t%.0f\t%.0f\t%.0f\t%.0f\t%s\t%s\t%s\n", n, tin[n], tout[n], rin[n], rout[n], seen[n], ip[n], sess[n] + 0 }
+  ' > "$STATS.tmp" && mv "$STATS.tmp" "$STATS"
+}
+
+# ---------- commands
+cmd_status() {
+  installed=false; running=false; version=""; listen=""; host=""; users=0; metrics=false; timer=false
+  if [ -x "$DIR/trusttunnel_endpoint" ]; then
+    installed=true
+    version=$("$DIR/trusttunnel_endpoint" --version 2>/dev/null | head -1 | sed 's/[^0-9.]*\([0-9][0-9.]*\).*/\1/')
+    listen=$(sed -n 's/^[[:space:]]*listen_address[[:space:]]*=[[:space:]]*"\(.*\)".*/\1/p' "$DIR/vpn.toml" 2>/dev/null | head -1)
+    host=$(sed -n 's/^[[:space:]]*hostname[[:space:]]*=[[:space:]]*"\(.*\)".*/\1/p' "$DIR/hosts.toml" 2>/dev/null | head -1)
+    users=$(creds_read | grep -c . 2>/dev/null)
+    grep -q '^[[:space:]]*per_client_metrics[[:space:]]*=[[:space:]]*true' "$DIR/vpn.toml" 2>/dev/null && metrics=true
+    systemctl is-active --quiet trusttunnel 2>/dev/null && running=true
+    systemctl is-active --quiet tunnel-stats.timer 2>/dev/null && timer=true
+  fi
+  configured=false; [ -f "$DIR/vpn.toml" ] && configured=true
+  load=$(cut -d' ' -f1 /proc/loadavg 2>/dev/null)
+  cpus=$(nproc 2>/dev/null || echo 1)
+  memt=$(awk '/MemTotal/ {print $2}' /proc/meminfo 2>/dev/null); mema=$(awk '/MemAvailable/ {print $2}' /proc/meminfo 2>/dev/null)
+  up=$(cut -d' ' -f1 /proc/uptime 2>/dev/null | cut -d. -f1)
+  os=$(. /etc/os-release 2>/dev/null && printf '%s' "$PRETTY_NAME"); arch=$(uname -m)
+  p443=false; if command -v ss >/dev/null 2>&1 && ss -ltnH 2>/dev/null | awk '{print $4}' | grep -Eq '[:.]443$'; then p443=true; fi
+  root=false; [ "$(id -u)" = 0 ] && root=true
+  printf '{"installed":%s,"configured":%s,"running":%s,"version":%s,"listen":%s,"hostname":%s,"users":%s,"metrics":%s,"timer":%s,"load":%s,"cpus":%s,"memTotal":%s,"memAvail":%s,"uptime":%s,"os":%s,"arch":%s,"port443busy":%s,"root":%s,"dir":%s}\n' \
+    "$installed" "$configured" "$running" "$(js "$version")" "$(js "$listen")" "$(js "$host")" "${users:-0}" "$metrics" "$timer" \
+    "${load:-0}" "${cpus:-1}" "${memt:-0}" "${mema:-0}" "${up:-0}" "$(js "$os")" "$(js "$arch")" "$p443" "$root" "$(js "$DIR")"
+}
+
+cmd_users() { # [{"name","password","in","out","seen","ip","sessions"}], seen = unix time of the last activity (0 = never)
+  need_root
+  collect
+  creds_read | awk -F '\t' -v stats="$STATS" '
+    function j(s) { gsub(/\\/, "\\\\", s); gsub(/"/, "\\\"", s); return "\"" s "\"" }
+    BEGIN { while ((getline l < stats) > 0) { split(l, a, "\t"); tin[a[1]] = a[2]; tout[a[1]] = a[3]; seen[a[1]] = a[6]; ip[a[1]] = a[7]; ses[a[1]] = a[8] } printf "[" }
+    $1 != "" { printf "%s{\"name\":%s,\"password\":%s,\"in\":%d,\"out\":%d,\"seen\":%d,\"ip\":%s,\"sessions\":%d}", (n++ ? "," : ""), j($1), j($2), tin[$1], tout[$1], seen[$1], j(ip[$1]), ses[$1] }
+    END { print "]" }'
+}
+
+cmd_adduser() {
+  need_root; valid_name "$1"; valid_pass "$2"
+  creds_read | awk -F '\t' -v n="$1" '$1 == n { f = 1 } END { exit f ? 0 : 1 }' && die "user $1 already exists"
+  { creds_read; printf '%s\t%s\n' "$1" "$2"; } | creds_write
+  restart_endpoint
+  say '{"ok":true}'
+}
+
+cmd_deluser() {
+  need_root; valid_name "$1"
+  left=$(creds_read | awk -F '\t' -v n="$1" '$1 != n' | grep -c .)
+  [ "$left" -gt 0 ] || die "the last user cannot be removed"
+  creds_read | awk -F '\t' -v n="$1" '$1 != n' | creds_write
+  [ -f "$STATS" ] && awk -F '\t' -v n="$1" '$1 != n' "$STATS" > "$STATS.tmp" && mv "$STATS.tmp" "$STATS"
+  restart_endpoint
+  say '{"ok":true}'
+}
+
+cmd_passwd() {
+  need_root; valid_name "$1"; valid_pass "$2"
+  creds_read | awk -F '\t' -v n="$1" '$1 == n { f = 1 } END { exit f ? 0 : 1 }' || die "no user $1"
+  creds_read | awk -F '\t' -v OFS='\t' -v n="$1" -v p="$2" '$1 == n { $2 = p } { print }' | creds_write
+  restart_endpoint
+  say '{"ok":true}'
+}
+
+cmd_link() { # name address
+  need_root; valid_name "$1"; [ -n "$2" ] || die "address is required"
+  cd "$DIR" || die "TrustTunnel is not installed"
+  out=$(./trusttunnel_endpoint vpn.toml hosts.toml -c "$1" -a "$2" 2>&1) || die "$out"
+  link=$(printf '%s\n' "$out" | grep -o 'tt://[^[:space:]]*' | head -1)
+  [ -n "$link" ] || die "no link in the endpoint output: $out"
+  printf '{"link":%s}\n' "$(js "$link")"
+}
+
+cmd_service() { # start|stop|restart
+  need_root
+  systemctl "$1" trusttunnel >/dev/null 2>&1 || die "systemctl $1 failed: $(journalctl -u trusttunnel -n 5 --no-pager 2>/dev/null | tail -3)"
+  say '{"ok":true}'
+}
+
+cmd_logs() {
+  need_root
+  journalctl -u trusttunnel -n "${1:-80}" --no-pager -o short-iso 2>&1 | tail -n "${1:-80}"
+}
+
+enable_metrics() {
+  grep -q '^[[:space:]]*\[metrics\]' "$DIR/vpn.toml" && { sed -i 's/^\([[:space:]]*per_client_metrics[[:space:]]*=[[:space:]]*\)false/\1true/' "$DIR/vpn.toml"; return; }
+  printf '\n[metrics]\naddress = "%s"\nrequest_timeout_secs = 3\nper_client_metrics = true\n' "$METRICS" >> "$DIR/vpn.toml"
+}
+
+install_timer() {
+  cp "$0" "$DIR/tunnelctl.sh" 2>/dev/null; chmod 700 "$DIR/tunnelctl.sh"
+  cat > /etc/systemd/system/tunnel-stats.service <<EOF
+[Unit]
+Description=Tunnel: TrustTunnel user statistics
+After=trusttunnel.service
+
+[Service]
+Type=oneshot
+Nice=19
+IOSchedulingClass=idle
+ExecStart=/bin/sh $DIR/tunnelctl.sh collect
+EOF
+  cat > /etc/systemd/system/tunnel-stats.timer <<EOF
+[Unit]
+Description=Tunnel: TrustTunnel user statistics every 5 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target
+EOF
+  systemctl daemon-reload && systemctl enable --now tunnel-stats.timer >/dev/null 2>&1
+}
+
+open_port() { # port
+  if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q 'Status: active'; then
+    ufw allow "$1"/tcp >/dev/null 2>&1; ufw allow "$1"/udp >/dev/null 2>&1; say "Firewall (ufw): port $1 opened"
+  elif command -v firewall-cmd >/dev/null 2>&1 && firewall-cmd --state >/dev/null 2>&1; then
+    firewall-cmd -q --permanent --add-port="$1"/tcp; firewall-cmd -q --permanent --add-port="$1"/udp; firewall-cmd -q --reload; say "Firewall (firewalld): port $1 opened"
+  fi
+}
+
+# install KEY=VALUE...: listen user pass cert(self-signed|letsencrypt|provided) hostname email chain key stats(1|0) firewall(1|0) force(1|0)
+cmd_install() {
+  need_root
+  listen="0.0.0.0:443"; user=""; pass=""; cert="self-signed"; hostname="vpn.endpoint"; email=""; chain=""; key=""; stats=1; firewall=1; force=0
+  for kv in "$@"; do
+    k=${kv%%=*}; v=${kv#*=}
+    case "$k" in listen) listen=$v ;; user) user=$v ;; pass) pass=$v ;; cert) cert=$v ;; hostname) hostname=$v ;; email) email=$v ;; chain) chain=$v ;; key) key=$v ;; stats) stats=$v ;; firewall) firewall=$v ;; force) force=$v ;; esac
+  done
+  valid_name "$user"; valid_pass "$pass"
+  [ "$(uname -s)" = Linux ] || die "only Linux servers are supported"
+  command -v systemctl >/dev/null 2>&1 || die "systemd is required"
+  if [ -f "$DIR/vpn.toml" ]; then
+    [ "$force" = 1 ] || die "TrustTunnel is already configured in $DIR"
+    b="$DIR/backup-$(date +%Y%m%d-%H%M%S)"; mkdir -p "$b"; mv "$DIR"/*.toml "$b"/ 2>/dev/null; say "Old settings moved to $b"
+  fi
+
+  say "STEP 1/5 Downloading TrustTunnel"
+  ensure_tools
+  fetch "$INSTALL_URL" 60 | sh -s - -a y -o "$DIR" || die "the official installer failed"
+  [ -x "$DIR/setup_wizard" ] || die "setup_wizard was not installed"
+
+  say "STEP 2/5 Generating settings and certificate"
+  cd "$DIR" || die "no $DIR"
+  set -- -m non-interactive -a "$listen" -c "$user:$pass" -n "$hostname" --lib-settings vpn.toml --hosts-settings hosts.toml --cert-type "$cert"
+  case "$cert" in
+    letsencrypt) [ -n "$email" ] || die "email is required for Let's Encrypt"; set -- "$@" --acme-email "$email" ;;
+    provided) set -- "$@" --cert-chain-path "$chain" --cert-key-path "$key" ;;
+  esac
+  ./setup_wizard "$@" </dev/null 2>&1 || die "setup_wizard failed"
+  [ -f vpn.toml ] && [ -f hosts.toml ] || die "the settings were not created"
+  [ "$stats" = 1 ] && enable_metrics
+
+  say "STEP 3/5 Installing the service"
+  sed "s#/opt/trusttunnel#$DIR#g" trusttunnel.service.template > /etc/systemd/system/trusttunnel.service || die "no service template"
+  systemctl daemon-reload && systemctl enable --now trusttunnel >/dev/null 2>&1 || die "trusttunnel did not start: $(journalctl -u trusttunnel -n 8 --no-pager | tail -5)"
+
+  say "STEP 4/5 Statistics and firewall"
+  [ "$stats" = 1 ] && install_timer
+  [ "$firewall" = 1 ] && open_port "${listen##*:}"
+
+  say "STEP 5/5 Checking"
+  sleep 2
+  systemctl is-active --quiet trusttunnel || die "trusttunnel is not running: $(journalctl -u trusttunnel -n 8 --no-pager | tail -5)"
+  say "DONE"
+}
+
+cmd_update() {
+  need_root
+  ensure_tools
+  say "STEP 1/2 Downloading the latest TrustTunnel"
+  systemctl stop trusttunnel >/dev/null 2>&1
+  fetch "$INSTALL_URL" 60 | sh -s - -a y -o "$DIR" || { systemctl start trusttunnel; die "the official installer failed"; }
+  say "STEP 2/2 Starting"
+  systemctl start trusttunnel || die "trusttunnel did not start"
+  [ -f /etc/systemd/system/tunnel-stats.timer ] && cp "$0" "$DIR/tunnelctl.sh" 2>/dev/null
+  say "DONE"
+}
+
+cmd_uninstall() {
+  need_root
+  systemctl disable --now trusttunnel tunnel-stats.timer >/dev/null 2>&1
+  rm -f /etc/systemd/system/trusttunnel.service /etc/systemd/system/tunnel-stats.service /etc/systemd/system/tunnel-stats.timer
+  systemctl daemon-reload
+  rm -rf "$DIR"
+  say '{"ok":true}'
+}
+
+c="$1"; [ $# -gt 0 ] && shift
+case "$c" in
+  status) cmd_status ;;
+  users) cmd_users ;;
+  adduser) cmd_adduser "$@" ;;
+  deluser) cmd_deluser "$@" ;;
+  passwd) cmd_passwd "$@" ;;
+  link) cmd_link "$@" ;;
+  start|stop|restart) cmd_service "$c" ;;
+  logs) cmd_logs "$@" ;;
+  install) cmd_install "$@" ;;
+  update) cmd_update ;;
+  uninstall) cmd_uninstall ;;
+  collect) need_root; collect ;;
+  stats) need_root; enable_metrics; install_timer; restart_endpoint; say '{"ok":true}' ;;
+  *) die "unknown command: $c" ;;
+esac
+</script>
 <script>
 (function () {
 'use strict';
@@ -326,6 +646,7 @@ function uid() { return Math.random().toString(36).slice(2, 9); }
 /* ---------- i18n ---------- */
 var L = {
  ru: {
+  admin: 'Управление сервером', adminS: 'Сервер', admConnect: 'Подключить сервер', admEmptyT: 'Подключите свой сервер', admEmptyD: 'Войдите на свой VPS по SSH: Tunnel установит TrustTunnel и даст управлять пользователями — трафик, последний вход, ссылки и пароли.', admConnecting: 'Подключаюсь…', admNotInstalled: 'TrustTunnel не установлен', admRunning: 'Работает', admStopped: 'Остановлен', admRes: 'нагрузка {0} · ядер {1} · память {2}/{3} МБ', refresh: 'Обновить', admTrust: 'Доверять новому ключу', admUpdating: 'Обновление TrustTunnel', admInstalling: 'Установка TrustTunnel', admStarting: 'Запускаю…', admDone: 'Готово', admFailed: 'Не получилось', admInstallT: 'Установка TrustTunnel', admInstallD: 'На сервере нет TrustTunnel. Установка займёт пару минут: Tunnel скачает официальную версию, задаст те же вопросы, что и мастер настройки, и запустит службу.', admInstall: 'Установить', admUsers: 'Пользователи', onlineN: '{0} в сети', online: 'в сети', never: 'не подключался', justNow: 'только что', minAgo: '{0} мин назад', hAgo: '{0} ч назад', admNoStats: 'Статистика выключена — трафик и последний вход не считаются.', admStatsOn: 'Включить', admNoUsers: 'Пользователей нет', admTotal: 'Всего трафика: {0}', admRestartNote: 'при изменении пользователей TrustTunnel перезапускается, подключения прервутся на пару секунд', admLink: 'Ссылка для подключения', admShowPass: 'Пароль', copied: 'Скопировано', admNewPass: 'Новый пароль', admNewPassD: 'Новый пароль для <b>{0}</b>: <span class="mono">{1}</span><br>Старая ссылка перестанет работать — отправьте новую.', admDelUserQ: 'Удалить пользователя?', admDelUserD: '<b>{0}</b> больше не сможет подключаться', admUserDeleted: 'Пользователь <b>{0}</b> удалён', admRestart: 'Перезапустить TrustTunnel', admRestarted: 'TrustTunnel перезапущен', admStop: 'Остановить TrustTunnel', admStart: 'Запустить TrustTunnel', admLogs: 'Журнал TrustTunnel', admUpdate: 'Обновить TrustTunnel', admUpdateD: 'Будет скачана последняя версия, настройки и пользователи сохранятся. Подключения прервутся на пару секунд.', admReinstall: 'Переустановить…', admEditConn: 'Изменить подключение', admUninstall: 'Удалить TrustTunnel с сервера', admUninstallQ: 'Удалить TrustTunnel?', admUninstallD: 'Служба, настройки, пользователи и сертификаты будут удалены с сервера.', admUninstalled: 'TrustTunnel удалён', admForget: 'Убрать из списка', admForgetQ: 'Убрать сервер из списка?', admForgetD: 'На сервере ничего не изменится, Tunnel просто забудет данные входа <b>{0}</b>.', admLinkD: 'Отправьте ссылку человеку — в Tunnel или приложении TrustTunnel она добавит сервер одним нажатием.', admAddMine: 'Добавить в мои серверы', admNewUser: 'Новый пользователь', admNameH: 'Латиница, цифры и . _ - @', admGen: 'Сгенерировать', admPassH: 'От 4 символов, без пробелов и кавычек', admWorking: 'Выполняю…', admUserCreated: 'Пользователь <b>{0}</b> создан', admConnD: 'Вход по SSH — паролем или ключом, root или пользователь с sudo, любой порт.', admHost: 'Адрес сервера', admHostH: 'IP или домен', admPort: 'Порт SSH', admUserH: 'Обычно root', admName: 'Название', admNameOpt: 'Необязательно', admAuth: 'Вход', admKey: 'Ключ', admKeyL: 'Приватный ключ', admKeyH: 'OpenSSH, PEM (RSA, ECDSA, Ed25519) или PuTTY .ppk', admKeyFile: 'Выбрать файл ключа', admPhrase: 'Фраза-пароль ключа', admPhraseH: 'Если ключ зашифрован', admSudo: 'Пароль sudo', admSudoH: 'Если не root. Пусто — пароль входа или sudo без пароля', admStoreNote: 'Данные входа хранятся только на этом устройстве, в зашифрованном виде. Права администратора есть только здесь.', admConnectBtn: 'Подключить', admAppOnly: 'Подключение к серверу работает в приложении Tunnel', admWizD: 'Это вопросы официального мастера TrustTunnel. Всё заполнено значениями по умолчанию — можно сразу нажать «Установить». Домен не нужен.', qListen: 'Адрес и порт для подключений', qListenH: 'По умолчанию 0.0.0.0:443 — все адреса сервера, порт HTTPS', qPortBusy: 'Порт 443 уже занят другой программой — укажите другой, например 0.0.0.0:8443', qUser: 'Первый пользователь', qPass: 'Пароль', qPassH: 'Сгенерирован автоматически', qCert: 'Сертификат', qSelf: 'Самоподписанный', qOwn: 'Свой', qSelfH: 'По умолчанию. Домен не нужен — сертификат встраивается в ссылки для подключения.', qLeH: 'Бесплатный сертификат: нужен домен, указывающий на сервер, и свободный порт 80.', qOwnH: 'Уже выпущенный сертификат: пути к файлам на сервере.', qHostname: 'Имя в сертификате', qHostnameH: 'По умолчанию vpn.endpoint, можно любое', qDomain: 'Домен', qDomainH: 'Должен указывать на IP сервера', qEmail: 'Email для Let\'s Encrypt', qEmailH: 'Для уведомлений об истечении', qChain: 'Цепочка сертификатов', qKeyPath: 'Закрытый ключ', qPathH: 'Путь на сервере', qRules: 'Фильтрация подключений', qRulesH: 'Разрешить все подключения — как по умолчанию в мастере. Правила можно добавить позже в rules.toml.', qStats: 'Статистика пользователей', qStatsH: 'Трафик и последний вход: раз в 5 минут, с низшим приоритетом', qFirewall: 'Открыть порт в файрволе', qFirewallH: 'Если включён ufw или firewalld', qFiles: 'Файлы настроек', qFilesH: 'Пути по умолчанию из мастера TrustTunnel', qForce: 'Переустановить с нуля', qForceH: 'Сейчас настройки уже есть — они сохранятся в резервную копию', step: 'Шаг {0} из {1}', sDownload: 'скачиваю TrustTunnel', sConfig: 'создаю настройки и сертификат', sService: 'запускаю службу', sStats: 'статистика и файрвол', sCheck: 'проверяю', sStart: 'запускаю', eAuth: 'Неверный логин, пароль или ключ', eConnect: 'Не удалось подключиться к серверу по SSH', eKey: 'Не получилось прочитать ключ — проверьте формат и фразу-пароль', eTimeout: 'Сервер не ответил вовремя', eHostkey: 'Ключ сервера изменился. Если вы переустанавливали сервер — доверьтесь новому ключу.', eSudo: 'Нужен пароль sudo — укажите его в настройках подключения',
   servers: 'Серверы', routing: 'Маршрутизация', split: 'Раздельное туннелирование', log: 'Журнал соединений', serversS: 'Серверы', routingS: 'Маршруты', splitS: 'Раздельно', logS: 'Журнал', settings: 'Настройки',
   st_off: 'Отключено', st_wait: 'Подключение…', st_on: 'Подключено',
   connectTo: 'Подключиться к', noServer: 'Сервер не выбран', addServer: 'Добавить сервер', import: 'Импорт',
@@ -371,6 +692,7 @@ var L = {
   quitQ: 'Выйти из Tunnel?', quitD: 'Активное подключение будет разорвано', close: 'Закрыть', export: 'Выгрузить настройки', importCfg: 'Загрузить настройки'
  },
  en: {
+  admin: 'Server management', adminS: 'Server', admConnect: 'Connect a server', admEmptyT: 'Connect your server', admEmptyD: 'Log in to your VPS over SSH: Tunnel installs TrustTunnel and lets you manage users — traffic, last seen, links and passwords.', admConnecting: 'Connecting…', admNotInstalled: 'TrustTunnel is not installed', admRunning: 'Running', admStopped: 'Stopped', admRes: 'load {0} · {1} cores · memory {2}/{3} MB', refresh: 'Refresh', admTrust: 'Trust the new key', admUpdating: 'Updating TrustTunnel', admInstalling: 'Installing TrustTunnel', admStarting: 'Starting…', admDone: 'Done', admFailed: 'Failed', admInstallT: 'Install TrustTunnel', admInstallD: 'TrustTunnel is not on this server. It takes a couple of minutes: Tunnel downloads the official release, asks the same questions as the setup wizard and starts the service.', admInstall: 'Install', admUsers: 'Users', onlineN: '{0} online', online: 'online', never: 'never connected', justNow: 'just now', minAgo: '{0} min ago', hAgo: '{0} h ago', admNoStats: 'Statistics are off — traffic and last seen are not counted.', admStatsOn: 'Turn on', admNoUsers: 'No users', admTotal: 'Total traffic: {0}', admRestartNote: 'changing users restarts TrustTunnel, connections drop for a couple of seconds', admLink: 'Connection link', admShowPass: 'Password', copied: 'Copied', admNewPass: 'New password', admNewPassD: 'New password for <b>{0}</b>: <span class="mono">{1}</span><br>The old link stops working — send a new one.', admDelUserQ: 'Delete user?', admDelUserD: '<b>{0}</b> will no longer be able to connect', admUserDeleted: 'User <b>{0}</b> deleted', admRestart: 'Restart TrustTunnel', admRestarted: 'TrustTunnel restarted', admStop: 'Stop TrustTunnel', admStart: 'Start TrustTunnel', admLogs: 'TrustTunnel log', admUpdate: 'Update TrustTunnel', admUpdateD: 'The latest release is downloaded, settings and users are kept. Connections drop for a couple of seconds.', admReinstall: 'Reinstall…', admEditConn: 'Edit connection', admUninstall: 'Remove TrustTunnel from the server', admUninstallQ: 'Remove TrustTunnel?', admUninstallD: 'The service, settings, users and certificates are removed from the server.', admUninstalled: 'TrustTunnel removed', admForget: 'Remove from the list', admForgetQ: 'Remove the server from the list?', admForgetD: 'Nothing changes on the server, Tunnel just forgets the login of <b>{0}</b>.', admLinkD: 'Send the link — Tunnel or the TrustTunnel app adds the server in one tap.', admAddMine: 'Add to my servers', admNewUser: 'New user', admNameH: 'Latin letters, digits and . _ - @', admGen: 'Generate', admPassH: '4+ characters, no spaces or quotes', admWorking: 'Working…', admUserCreated: 'User <b>{0}</b> created', admConnD: 'SSH login with a password or a key, as root or a sudo user, on any port.', admHost: 'Server address', admHostH: 'IP or domain', admPort: 'SSH port', admUserH: 'Usually root', admName: 'Name', admNameOpt: 'Optional', admAuth: 'Login', admKey: 'Key', admKeyL: 'Private key', admKeyH: 'OpenSSH, PEM (RSA, ECDSA, Ed25519) or PuTTY .ppk', admKeyFile: 'Choose key file', admPhrase: 'Key passphrase', admPhraseH: 'If the key is encrypted', admSudo: 'sudo password', admSudoH: 'If not root. Empty: the login password or passwordless sudo', admStoreNote: 'The login is stored only on this device, encrypted. Admin rights exist only here.', admConnectBtn: 'Connect', admAppOnly: 'Server connection works in the Tunnel app', admWizD: 'These are the questions of the official TrustTunnel wizard, filled with the defaults — you can press Install right away. No domain is needed.', qListen: 'Address and port to listen on', qListenH: 'Default 0.0.0.0:443 — all server addresses, HTTPS port', qPortBusy: 'Port 443 is taken by another program — use another, e.g. 0.0.0.0:8443', qUser: 'First user', qPass: 'Password', qPassH: 'Generated automatically', qCert: 'Certificate', qSelf: 'Self-signed', qOwn: 'Own', qSelfH: 'Default. No domain needed — the certificate is embedded into the connection links.', qLeH: 'Free certificate: needs a domain pointing to the server and a free port 80.', qOwnH: 'An existing certificate: file paths on the server.', qHostname: 'Name in the certificate', qHostnameH: 'Default vpn.endpoint, any name works', qDomain: 'Domain', qDomainH: 'Must point to the server IP', qEmail: 'Email for Let\'s Encrypt', qEmailH: 'For expiry notices', qChain: 'Certificate chain', qKeyPath: 'Private key', qPathH: 'Path on the server', qRules: 'Connection filtering', qRulesH: 'Allow all connections — the wizard default. Rules can be added later in rules.toml.', qStats: 'User statistics', qStatsH: 'Traffic and last seen: every 5 minutes at the lowest priority', qFirewall: 'Open the port in the firewall', qFirewallH: 'If ufw or firewalld is on', qFiles: 'Settings files', qFilesH: 'Default paths of the TrustTunnel wizard', qForce: 'Reinstall from scratch', qForceH: 'Settings already exist — they are kept in a backup', step: 'Step {0} of {1}', sDownload: 'downloading TrustTunnel', sConfig: 'creating settings and certificate', sService: 'starting the service', sStats: 'statistics and firewall', sCheck: 'checking', sStart: 'starting', eAuth: 'Wrong user, password or key', eConnect: 'Could not connect to the server over SSH', eKey: 'Could not read the key — check the format and passphrase', eTimeout: 'The server did not answer in time', eHostkey: 'The server key has changed. If you reinstalled the server, trust the new key.', eSudo: 'A sudo password is needed — set it in the connection settings',
   servers: 'Servers', routing: 'Routing', split: 'Split tunneling', log: 'Connection log', serversS: 'Servers', routingS: 'Routing', splitS: 'Split', logS: 'Log', settings: 'Settings',
   st_off: 'Disconnected', st_wait: 'Connecting…', st_on: 'Connected',
   connectTo: 'Connect to', noServer: 'No server selected', addServer: 'Add server', import: 'Import',
@@ -449,6 +771,7 @@ var BLANK = {
   lang: 'ru', theme: 'dark', tab: 'servers', sel: null, servers: [],
   profiles: [{ id: 'p1', name: 'Профиль по умолчанию', mode: 'bypass', rules: '' }],
   split: { on: false, mode: 'exclude', apps: [], ips: [] },
+  admins: [],
   set: { autostart: false, openWin: false, autoconnect: false, minTray: true, excluded: '10.0.0.0/8\n172.16.0.0/12\n192.168.0.0/16\n169.254.0.0/16\n224.0.0.0/3', level: 'basic', sensitive: 'strip', autoUpd: true }
 };
 if (window.TunnelAndroid && !(window.chrome && window.chrome.webview)) (function () {
@@ -508,6 +831,8 @@ var IC = {
   servers: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></svg>',
   routing: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M8.5 18H14a4 4 0 0 0 0-8h-4a4 4 0 0 1 0-8h5.5"/></svg>',
   split: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h7l4-6h7M14 18h7M10 12l4 6"/><path d="M18 3l3 3-3 3M18 15l3 3-3 3"/></svg>',
+  admin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7 9l3 3-3 3M13 15h4"/></svg>',
+  refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>',
   log: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>',
   power: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 3v9"/><path d="M6.3 6.6a8 8 0 1 0 11.4 0"/></svg>',
   dots: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>',
@@ -516,7 +841,7 @@ var IC = {
   sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
   moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>'
 };
-var TABS = ['servers', 'routing', 'split', 'log'];
+var TABS = ['servers', 'routing', 'split', 'admin', 'log'];
 
 /* ---------- shell ---------- */
 function renderShell() {
@@ -537,7 +862,7 @@ function render() {
   renderShell();
   $('setPane').hidden = !RT.setOpen; $('setShade').hidden = !RT.setOpen;
   if (RT.setOpen) renderSettings();
-  ({ servers: renderServers, routing: renderRouting, split: renderSplit, log: renderLog })[S.tab]();
+  ({ servers: renderServers, routing: renderRouting, split: renderSplit, admin: renderAdmin, log: renderLog })[S.tab]();
 }
 $('rail').onclick = function (e) { var b = e.target.closest('.tab'); if (!b) return; S.tab = b.dataset.tab; RT.setOpen = false; persist(); render(); };
 $('uiBtn').onclick = function () { S.theme = S.theme === 'dark' ? 'light' : 'dark'; send('theme', { dark: S.theme === 'dark' }); persist(); render(); };
@@ -938,6 +1263,315 @@ function appsDlg(all) {
   };
   $('dlg').addEventListener('close', function () { if (S.tab === 'split') render(); }, { once: true });
 }
+
+/* ---------- server tab: install and manage TrustTunnel on the user's own server over SSH ---------- */
+var CTL = (function () { var el = document.getElementById('tunnelctl'); return el ? el.textContent.replace(/^\s+/, '') : ''; })();
+var CTL_B64 = btoa(unescape(encodeURIComponent(CTL)));
+var ADM = { sel: null, st: {}, users: {}, err: {}, busy: {}, home: {}, uid: {}, up: {}, job: {}, timer: null };
+function sq(v) { return "'" + String(v).replace(/'/g, "'\\''") + "'"; }
+function admCur() { var a = (S.admins || []).filter(function (x) { return x.id === ADM.sel; })[0]; return a || (S.admins || [])[0] || null; }
+function connOf(a) { return { host: a.host, port: String(a.port || 22), user: a.user, auth: a.auth, password: a.password || '', key: a.key || '', passphrase: a.passphrase || '', fp: a.fp || '' }; }
+function genPass(n) { var c = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789', a = new Uint32Array(n || 16), s = ''; crypto.getRandomValues(a); for (var i = 0; i < a.length; i++) s += c[a[i] % c.length]; return s; }
+function fmtSize(n) { n = +n || 0; var u = S.lang === 'en' ? ['B', 'KB', 'MB', 'GB', 'TB'] : ['Б', 'КБ', 'МБ', 'ГБ', 'ТБ'], i = 0; while (n >= 1024 && i < 4) { n /= 1024; i++; } return (i ? n.toFixed(n < 10 ? 2 : 1) : n) + ' ' + u[i]; }
+function fmtSeen(u) {
+  if (u.sessions > 0) return '<span class="online">' + t('online') + '</span>';
+  if (!u.seen) return t('never');
+  var d = Math.max(0, Date.now() / 1000 - u.seen);
+  if (d < 90) return t('justNow'); if (d < 3600) return t('minAgo', Math.round(d / 60)); if (d < 86400) return t('hAgo', Math.round(d / 3600));
+  var dt = new Date(u.seen * 1000); return ('0' + dt.getDate()).slice(-2) + '.' + ('0' + (dt.getMonth() + 1)).slice(-2) + '.' + dt.getFullYear();
+}
+
+// one SSH command; the first call per session uploads tunnelctl.sh and learns $HOME and the user id
+function sshRaw(a, cmd, stdin, timeout) {
+  return ask('ssh', { conn: connOf(a), cmd: cmd, stdin: stdin || '', timeout: timeout || 120 }).then(function (r) {
+    if (r && r.fp && a.fp !== r.fp) { a.fp = r.fp; persist(); }
+    return r;
+  }, function (e) {
+    var m = String(e.message || e), code = m.split(':')[0];
+    var err = new Error(({ auth: t('eAuth'), connect: t('eConnect'), key: t('eKey'), timeout: t('eTimeout'), hostkey: t('eHostkey'), input: t('fill') })[code] || m);
+    err.code = code; err.raw = m; throw err;
+  });
+}
+function sudoOf(a) { return ADM.uid[a.id] === '0' ? { pre: '', stdin: '' } : (a.sudo || a.password) ? { pre: "sudo -S -p '' ", stdin: (a.sudo || a.password) + '\n' } : { pre: 'sudo -n ', stdin: '' }; }
+function ensureCtl(a) {
+  if (ADM.up[a.id]) return Promise.resolve();
+  return sshRaw(a, "mkdir -p ~/.tunnel && printf '%s' '" + CTL_B64 + "' | base64 -d > ~/.tunnel/tunnelctl.sh && echo \"@@$HOME@@$(id -u)\"", '', 60).then(function (r) {
+    var m = /@@(.*)@@(\d+)/.exec(r.out || '');
+    if (r.code !== 0 || !m) throw new Error((r.err || r.out || '').trim() || t('eConnect'));
+    ADM.home[a.id] = m[1]; ADM.uid[a.id] = m[2]; ADM.up[a.id] = true;
+  });
+}
+function ctl(a, op, args, extra) {
+  return ensureCtl(a).then(function () {
+    var su = sudoOf(a), path = ADM.home[a.id] + '/.tunnel/tunnelctl.sh';
+    var cmd = su.pre + 'sh ' + sq(path) + ' ' + op + (args || []).map(sq).map(function (x) { return ' ' + x; }).join('') + (extra || '');
+    return sshRaw(a, cmd, su.stdin, 180);
+  }).then(function (r) {
+    if (r.code !== 0) {
+      var em = ((r.err || '') + '\n' + (r.out || '')).split('\n').filter(function (l) { return /ERROR:|sudo/.test(l); })[0] || (r.err || r.out || '').trim().split('\n').pop();
+      throw new Error(/password is required|a terminal is required|no tty/i.test(em || '') ? t('eSudo') : (em || 'exit ' + r.code).replace(/^ERROR:\s*/, ''));
+    }
+    return r.out || '';
+  });
+}
+function lastJson(out) { var l = out.trim().split('\n').filter(function (x) { return /^[\[{]/.test(x.trim()); }).pop(); return l ? JSON.parse(l) : null; }
+
+function admRefresh(a, quiet) {
+  if (!a || ADM.busy[a.id]) return;
+  ADM.busy[a.id] = true; ADM.err[a.id] = null; if (!quiet) renderAdminBody();
+  var job = ADM.home[a.id] ? '' : '';
+  ctl(a, 'status', [], "; J=\"$HOME/.tunnel\"; [ -f \"$J/job.log\" ] && [ ! -f \"$J/job.rc\" ] && echo @@JOB; true").then(function (out) {
+    ADM.st[a.id] = lastJson(out) || {};
+    if (/@@JOB/.test(out) && !ADM.job[a.id]) { ADM.job[a.id] = { op: 'install', log: '', step: '' }; pollJob(a); }
+    if (ADM.st[a.id].installed && ADM.st[a.id].configured) return ctl(a, 'users').then(function (o) { ADM.users[a.id] = lastJson(o) || []; });
+  }).catch(function (e) { ADM.err[a.id] = e; }).then(function () { ADM.busy[a.id] = false; if (S.tab === 'admin') renderAdminBody(); });
+}
+
+function renderAdmin() {
+  if (!S.admins) S.admins = [];
+  var a = admCur(); if (a) ADM.sel = a.id;
+  $('view').innerHTML = '<div class="inner admin"><div class="head"><h2>' + t('admin') + '</h2><span class="grow"></span>' +
+    (S.admins.length ? '<button class="btn primary" id="admAdd" title="' + t('admConnect') + '">' + IC.plus + '<span class="bl">' + t('admConnect') + '</span></button>' : '') + '</div>' +
+    (S.admins.length > 1 ? '<div class="chips admchips">' + S.admins.map(function (x) { return '<button class="prof' + (x.id === ADM.sel ? ' sel' : '') + '" data-id="' + x.id + '" type="button"><b>' + esc(x.name) + '</b></button>'; }).join('') + '</div>' : '') +
+    '<div id="admBody" class="admbody"></div></div>';
+  if ($('admAdd')) $('admAdd').onclick = function () { admConnDlg(null); };
+  var ch = $('view').querySelector('.admchips'); if (ch) ch.onclick = function (e) { var b = e.target.closest('[data-id]'); if (!b) return; ADM.sel = b.dataset.id; renderAdmin(); };
+  renderAdminBody();
+  if (a && !ADM.st[a.id] && !ADM.err[a.id]) admRefresh(a);
+}
+
+function renderAdminBody() {
+  var b = $('admBody'); if (!b) return;
+  var a = admCur();
+  if (!a) {
+    b.innerHTML = '<div class="box empty"><svg viewBox="0 0 100 100" width="58" height="58"><use href="#logo"/></svg><b>' + t('admEmptyT') + '</b><span>' + t('admEmptyD') + '</span><button class="btn primary" id="admAdd2">' + IC.plus + t('admConnect') + '</button></div>';
+    $('admAdd2').onclick = function () { admConnDlg(null); }; return;
+  }
+  var st = ADM.st[a.id], err = ADM.err[a.id], busy = ADM.busy[a.id], job = ADM.job[a.id];
+  var chip = !st ? (busy ? '<span class="tag">' + t('admConnecting') + '</span>' : '') :
+    !st.installed || !st.configured ? '<span class="tag">' + t('admNotInstalled') + '</span>' :
+    st.running ? '<span class="tag a">' + t('admRunning') + '</span>' : '<span class="tag warnc">' + t('admStopped') + '</span>';
+  var res = st && st.memTotal ? t('admRes', (+st.load).toFixed(2), st.cpus, Math.round((st.memTotal - st.memAvail) / 1024), Math.round(st.memTotal / 1024)) : '';
+  var h = '<div class="box admstat"><div class="head"><div style="min-width:0;flex:1"><b class="admname">' + esc(a.name) + '</b><div class="muted mono admhost">' + esc(a.user) + '@' + esc(a.host) + (a.port && a.port != 22 ? ':' + esc(a.port) : '') + '</div></div>' + chip +
+    '<button class="iconbtn" id="admRef" title="' + t('refresh') + '"' + (busy ? ' disabled' : '') + '>' + IC.refresh + '</button><button class="iconbtn" id="admMenu">' + IC.dots + '</button></div>' +
+    (st && st.installed && st.configured ? '<div class="admmeta"><span>TrustTunnel ' + esc(st.version || '') + '</span><span>' + esc(st.listen || '') + '</span>' + (st.hostname ? '<span>' + esc(st.hostname) + '</span>' : '') + (res ? '<span>' + res + '</span>' : '') + '</div>' : (res ? '<div class="admmeta"><span>' + esc(st.os || '') + '</span><span>' + res + '</span></div>' : '')) +
+    (err ? '<div class="note warn">' + esc(err.message) + (err.code === 'hostkey' ? ' <button class="btn sm" id="admTrust">' + t('admTrust') + '</button>' : '') + '</div>' : '') +
+    '</div>';
+  if (job) {
+    h += '<div class="box admjob"><div class="eyebrow">' + (job.op === 'update' ? t('admUpdating') : t('admInstalling')) + '</div><b>' + esc(job.step || t('admStarting')) + '</b>' +
+      '<div class="bar"><i style="width:' + (job.pct || 4) + '%"></i></div><pre class="admlog" id="admLog">' + esc(job.log || '') + '</pre>' +
+      (job.done ? '<div class="links">' + (job.ok ? '<span class="ok">' + t('admDone') + '</span>' : '<span class="bad">' + esc(job.error || t('admFailed')) + '</span>') + '<button class="btn sm" id="admJobClose">' + t('close') + '</button></div>' : '') + '</div>';
+  } else if (st && (!st.installed || !st.configured)) {
+    h += '<div class="box admcta"><b>' + t('admInstallT') + '</b><span class="muted">' + t('admInstallD') + '</span><div class="links"><button class="btn primary" id="admInstall">' + t('admInstall') + '</button></div></div>';
+  } else if (st) {
+    var us = ADM.users[a.id] || [];
+    var tin = 0, tout = 0, on = 0; us.forEach(function (u) { tin += u.in; tout += u.out; if (u.sessions > 0) on++; });
+    h += '<div class="box admusers"><div class="head"><span class="eyebrow" style="flex:1">' + t('admUsers') + ' · ' + us.length + (on ? ' · <span class="online">' + t('onlineN', on) + '</span>' : '') + '</span><button class="btn sm primary" id="admUserAdd">' + IC.plus + t('add') + '</button></div>' +
+      (st.metrics ? '' : '<div class="note warn">' + t('admNoStats') + ' <button class="btn sm" id="admStatsOn">' + t('admStatsOn') + '</button></div>') +
+      '<div class="items" id="admUserList">' + (us.length ? us.map(function (u) {
+        return '<div class="item urow" data-name="' + esc(u.name) + '" style="grid-template-columns:auto minmax(0,1fr) auto auto"><span class="udot' + (u.sessions > 0 ? ' on' : '') + '"></span>' +
+          '<div class="t"><b>' + esc(u.name) + '</b><small>' + fmtSeen(u) + (u.ip ? ' · ' + esc(u.ip) : '') + '</small></div>' +
+          '<div class="utraffic" title="↓ ' + fmtSize(u.out) + ' · ↑ ' + fmtSize(u.in) + '"><b>' + fmtSize(u.in + u.out) + '</b><small>↓ ' + fmtSize(u.out) + ' ↑ ' + fmtSize(u.in) + '</small></div>' +
+          '<button class="iconbtn" data-umenu="' + esc(u.name) + '">' + IC.dots + '</button></div>';
+      }).join('') : '<div class="empty" style="padding:16px">' + t('admNoUsers') + '</div>') + '</div>' +
+      (us.length ? '<div class="muted admtot">' + t('admTotal', fmtSize(tin + tout)) + ' · ' + t('admRestartNote') + '</div>' : '') + '</div>';
+  } else if (busy) {
+    h += '<div class="box empty"><span>' + t('admConnecting') + '</span></div>';
+  }
+  b.innerHTML = h;
+  var lg = $('admLog'); if (lg) lg.scrollTop = lg.scrollHeight;
+  $('admRef').onclick = function () { ADM.up[a.id] = false; admRefresh(a); };
+  $('admMenu').onclick = function (e) { e.stopPropagation(); var r = this.getBoundingClientRect(); admMenu(a, r); };
+  if ($('admTrust')) $('admTrust').onclick = function () { a.fp = ''; ADM.err[a.id] = null; persist(); admRefresh(a); };
+  if ($('admInstall')) $('admInstall').onclick = function () { admInstallDlg(a); };
+  if ($('admJobClose')) $('admJobClose').onclick = function () { delete ADM.job[a.id]; admRefresh(a); };
+  if ($('admUserAdd')) $('admUserAdd').onclick = function () { admUserDlg(a); };
+  if ($('admStatsOn')) $('admStatsOn').onclick = function () { admAction(a, 'stats', [], null); };
+  if ($('admUserList')) $('admUserList').onclick = function (e) {
+    var m = e.target.closest('[data-umenu]'); if (!m) return; e.stopPropagation();
+    var name = m.dataset.umenu, u = (ADM.users[a.id] || []).filter(function (x) { return x.name === name; })[0], r = m.getBoundingClientRect();
+    menu(r.right - 220, r.bottom + 4, [
+      [t('admLink'), function () { admLink(a, name); }],
+      [t('admShowPass') + ': ' + (u ? u.password : ''), function () { copyText(u ? u.password : ''); toast(t('copied')); }],
+      [t('admNewPass'), function () { var p = genPass(); confirmDlg(t('admNewPass'), t('admNewPassD', name, p), t('save'), function () { admAction(a, 'passwd', [name, p], t('savedT')); }); }],
+      [t('del'), function () { confirmDlg(t('admDelUserQ'), t('admDelUserD', name), t('del'), function () { admAction(a, 'deluser', [name], t('admUserDeleted', name)); }); }, true]
+    ]);
+  };
+}
+
+function copyText(s) { try { navigator.clipboard.writeText(s); } catch (e) {} }
+function admAction(a, op, args, okMsg) {
+  ADM.busy[a.id] = true; renderAdminBody();
+  ctl(a, op, args).then(function () { if (okMsg) toast(okMsg); }, function (e) { toast(esc(e.message)); })
+    .then(function () { ADM.busy[a.id] = false; admRefresh(a, true); });
+}
+
+function admMenu(a, r) {
+  var st = ADM.st[a.id] || {}, items = [];
+  if (st.installed && st.configured) {
+    items.push([t('admRestart'), function () { admAction(a, 'restart', [], t('admRestarted')); }]);
+    items.push(st.running ? [t('admStop'), function () { admAction(a, 'stop', [], null); }] : [t('admStart'), function () { admAction(a, 'start', [], null); }]);
+    items.push([t('admLogs'), function () { admLogs(a); }]);
+    items.push([t('admUpdate'), function () { confirmDlg(t('admUpdate'), t('admUpdateD'), t('admUpdate'), function () { startJob(a, 'update', []); }); }]);
+    items.push([t('admReinstall'), function () { admInstallDlg(a); }]);
+  }
+  items.push([t('admEditConn'), function () { admConnDlg(a); }]);
+  if (st.installed) items.push([t('admUninstall'), function () { confirmDlg(t('admUninstallQ'), t('admUninstallD'), t('del'), function () { admAction(a, 'uninstall', [], t('admUninstalled')); }); }, true]);
+  items.push([t('admForget'), function () { confirmDlg(t('admForgetQ'), t('admForgetD', a.name), t('del'), function () { send('ssh-drop', { conn: connOf(a) }); S.admins.splice(S.admins.indexOf(a), 1); ADM.sel = null; persist(); render(); }); }, true]);
+  menu(r.right - 240, r.bottom + 4, items);
+}
+
+function admLogs(a) {
+  openDlg(t('admLogs'), '<pre class="admlog big" id="admLogs">' + t('admConnecting') + '</pre>', '<button class="btn" data-close>' + t('close') + '</button>');
+  ctl(a, 'logs', ['120']).then(function (o) { var p = $('admLogs'); if (p) { p.textContent = o || '—'; p.scrollTop = p.scrollHeight; } }, function (e) { var p = $('admLogs'); if (p) p.textContent = e.message; });
+}
+
+function admLink(a, name, offerAdd) {
+  openDlg(t('admLink') + ' · ' + name, '<p class="muted" style="margin:0">' + t('admLinkD') + '</p><textarea id="admLinkTxt" readonly style="min-height:110px">' + t('admConnecting') + '</textarea>',
+    '<button class="btn" id="admLinkCopy">' + t('copyLink') + '</button><button class="btn primary" id="admLinkAdd">' + t('admAddMine') + '</button>');
+  var link = null;
+  ctl(a, 'link', [name, a.host]).then(function (o) { link = (lastJson(o) || {}).link; $('admLinkTxt').value = link || '—'; }, function (e) { $('admLinkTxt').value = e.message; });
+  $('admLinkCopy').onclick = function () { if (link) { copyText(link); toast(t('linkCopied')); } };
+  $('admLinkAdd').onclick = function () { if (!link) return; $('dlg').close(); importDlg(link); };
+}
+
+function admUserDlg(a) {
+  var n = (ADM.users[a.id] || []).length + 1, name = 'user' + n;
+  while ((ADM.users[a.id] || []).some(function (u) { return u.name === name; })) name = 'user' + (++n);
+  openDlg(t('admNewUser'),
+    '<label class="field"><span>' + t('username') + '</span><input type="text" id="auName" class="mono" value="' + esc(name) + '" spellcheck="false" autocomplete="off"><small id="auNameE">' + t('admNameH') + '</small></label>' +
+    '<label class="field"><span>' + t('password') + '</span><div class="addrow" style="grid-template-columns:minmax(0,1fr) auto"><input type="text" id="auPass" class="mono" value="' + genPass() + '" spellcheck="false" autocomplete="off"><button class="btn" type="button" id="auGen" title="' + t('admGen') + '">' + IC.refresh + '</button></div><small id="auPassE">' + t('admPassH') + '</small></label>' +
+    '<div class="note">' + t('admRestartNote') + '</div>',
+    '<button class="btn" data-close>' + t('cancel') + '</button><button class="btn primary" id="auOk">' + t('create') + '</button>');
+  $('auGen').onclick = function () { $('auPass').value = genPass(); };
+  $('auOk').onclick = function () {
+    var nm = $('auName').value.trim(), pw = $('auPass').value.trim(), ok = true;
+    if (!/^[A-Za-z0-9_.@-]{1,64}$/.test(nm)) { $('auNameE').className = 'bad'; ok = false; }
+    if (!/^[A-Za-z0-9_.@%+=!#-]{4,128}$/.test(pw)) { $('auPassE').className = 'bad'; ok = false; }
+    if (!ok) return;
+    this.disabled = true; this.textContent = t('admWorking');
+    ctl(a, 'adduser', [nm, pw]).then(function () { $('dlg').close(); toast(t('admUserCreated', nm)); admRefresh(a, true); admLink(a, nm); },
+      function (e) { $('auOk').disabled = false; $('auOk').textContent = t('create'); $('auNameE').textContent = e.message; $('auNameE').className = 'bad'; });
+  };
+}
+
+function admConnDlg(x) {
+  var isNew = !x, a = x || { id: uid(), name: '', host: '', port: 22, user: 'root', auth: 'password', password: '', key: '', passphrase: '', sudo: '', fp: '' };
+  function f(id, label, val, type, help, cls) { return '<label class="field"><span>' + label + '</span><input type="' + (type || 'text') + '" id="' + id + '" value="' + esc(val) + '" class="' + (cls || '') + '" autocomplete="off" spellcheck="false"><small id="' + id + 'E">' + (help || '') + '</small></label>'; }
+  openDlg(isNew ? t('admConnect') : t('admEditConn'),
+    '<p class="muted" style="margin:0">' + t('admConnD') + '</p>' +
+    '<div class="two">' + f('acHost', t('admHost'), a.host, 'text', t('admHostH'), 'mono') + f('acPort', t('admPort'), a.port || 22, 'text', '', 'mono') + '</div>' +
+    '<div class="two">' + f('acUser', t('username'), a.user, 'text', t('admUserH'), 'mono') + f('acName', t('admName'), a.name, 'text', t('admNameOpt')) + '</div>' +
+    '<div class="field"><span>' + t('admAuth') + '</span><div class="seg" id="acAuth"><button type="button" data-v="password" aria-pressed="' + (a.auth !== 'key') + '">' + t('password') + '</button><button type="button" data-v="key" aria-pressed="' + (a.auth === 'key') + '">' + t('admKey') + '</button></div></div>' +
+    '<div id="acPw">' + f('acPass', t('password'), a.password, 'password') + '</div>' +
+    '<div id="acKey"><label class="field"><span>' + t('admKeyL') + '</span><textarea id="acKeyTxt" style="min-height:90px" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----">' + esc(a.key) + '</textarea><small>' + t('admKeyH') + '</small></label>' +
+      '<div class="links"><button class="btn sm" type="button" id="acKeyFile">' + t('admKeyFile') + '</button></div>' + f('acPhrase', t('admPhrase'), a.passphrase, 'password', t('admPhraseH')) + '</div>' +
+    '<div id="acSudoBox">' + f('acSudo', t('admSudo'), a.sudo, 'password', t('admSudoH')) + '</div>' +
+    '<div class="note">' + t('admStoreNote') + '</div><small id="acErr" class="bad"></small>',
+    '<button class="btn" data-close>' + t('cancel') + '</button><button class="btn primary" id="acOk">' + (isNew ? t('admConnectBtn') : t('save')) + '</button>');
+  var auth = a.auth === 'key' ? 'key' : 'password';
+  function sync() { $('acPw').hidden = auth === 'key'; $('acKey').hidden = auth !== 'key'; $('acSudoBox').hidden = $('acUser').value.trim() === 'root'; }
+  $('acAuth').onclick = function (e) { var b = e.target.closest('button'); if (!b) return; auth = b.dataset.v; [].forEach.call(this.children, function (c) { c.setAttribute('aria-pressed', String(c === b)); }); sync(); };
+  $('acUser').oninput = sync; sync();
+  $('acKeyFile').onclick = function () { if (HOST) ask('pick-key').then(function (txt) { if (txt) $('acKeyTxt').value = txt; }); else pickFile('', function (txt) { $('acKeyTxt').value = txt; }); };
+  $('acOk').onclick = function () {
+    var host = $('acHost').value.trim(), user = $('acUser').value.trim(), port = parseInt($('acPort').value, 10) || 22;
+    if (!host || !user) { $('acErr').textContent = t('fill'); return; }
+    var n = { id: a.id, name: $('acName').value.trim() || host, host: host, port: port, user: user, auth: auth,
+      password: auth === 'password' ? $('acPass').value : '', key: auth === 'key' ? $('acKeyTxt').value.trim() : '', passphrase: auth === 'key' ? $('acPhrase').value : '',
+      sudo: user === 'root' ? '' : $('acSudo').value, fp: (x && x.host === host && String(x.port) === String(port)) ? a.fp : '' };
+    if (auth === 'password' && !n.password) { $('acErr').textContent = t('fill'); return; }
+    if (auth === 'key' && !n.key) { $('acErr').textContent = t('fill'); return; }
+    if (!HOST) { $('acErr').textContent = t('admAppOnly'); return; }
+    var btn = this; btn.disabled = true; btn.textContent = t('admConnecting'); $('acErr').textContent = '';
+    if (x) send('ssh-drop', { conn: connOf(x) });
+    ADM.up[n.id] = false;
+    ensureCtl(n).then(function () {
+      if (isNew) S.admins.push(n); else S.admins[S.admins.indexOf(x)] = n;
+      ADM.sel = n.id; delete ADM.st[n.id]; delete ADM.err[n.id]; persist(); $('dlg').close(); render(); admRefresh(n);
+    }, function (e) { btn.disabled = false; btn.textContent = isNew ? t('admConnectBtn') : t('save'); $('acErr').textContent = e.message; });
+  };
+}
+
+function admInstallDlg(a) {
+  var st = ADM.st[a.id] || {};
+  function f(id, label, val, help, cls) { return '<label class="field"><span>' + label + '</span><input type="text" id="' + id + '" value="' + esc(val) + '" class="' + (cls || '') + '" autocomplete="off" spellcheck="false"><small id="' + id + 'E">' + (help || '') + '</small></label>'; }
+  openDlg(t('admInstallT'),
+    '<p class="muted" style="margin:0">' + t('admWizD') + '</p>' +
+    '<div class="wq"><i>1</i>' + f('iwListen', t('qListen'), '0.0.0.0:443', t('qListenH') + (st.port443busy ? '<br><span class="bad">' + t('qPortBusy') + '</span>' : ''), 'mono') + '</div>' +
+    '<div class="wq"><i>2</i><div class="two">' + f('iwUser', t('qUser'), 'user1', t('admNameH'), 'mono') +
+      '<label class="field"><span>' + t('qPass') + '</span><div class="addrow" style="grid-template-columns:minmax(0,1fr) auto"><input type="text" id="iwPass" class="mono" value="' + genPass() + '" autocomplete="off" spellcheck="false"><button class="btn" type="button" id="iwGen" title="' + t('admGen') + '">' + IC.refresh + '</button></div><small id="iwPassE">' + t('qPassH') + '</small></label></div></div>' +
+    '<div class="wq"><i>3</i><div class="field"><span>' + t('qCert') + '</span><div class="seg" id="iwCert"><button type="button" data-v="self-signed" aria-pressed="true">' + t('qSelf') + '</button><button type="button" data-v="letsencrypt" aria-pressed="false">Let\'s Encrypt</button><button type="button" data-v="provided" aria-pressed="false">' + t('qOwn') + '</button></div><small id="iwCertH">' + t('qSelfH') + '</small></div>' +
+      '<div id="iwSelf">' + f('iwHostS', t('qHostname'), 'vpn.endpoint', t('qHostnameH'), 'mono') + '</div>' +
+      '<div id="iwLe" hidden><div class="two">' + f('iwDomain', t('qDomain'), '', t('qDomainH'), 'mono') + f('iwEmail', t('qEmail'), '', t('qEmailH')) + '</div></div>' +
+      '<div id="iwOwn" hidden>' + f('iwHostO', t('qDomain'), '', '', 'mono') + '<div class="two">' + f('iwChain', t('qChain'), '', t('qPathH'), 'mono') + f('iwKey', t('qKeyPath'), '', t('qPathH'), 'mono') + '</div></div></div>' +
+    '<div class="wq"><i>4</i><div class="field"><span>' + t('qRules') + '</span><small>' + t('qRulesH') + '</small></div></div>' +
+    '<div class="wq"><i>5</i><div style="display:grid;gap:4px;min-width:0"><label class="srow"><span>' + t('qStats') + '<small>' + t('qStatsH') + '</small></span>' + sw('iwStats', true) + '</label>' +
+      '<label class="srow"><span>' + t('qFirewall') + '<small>' + t('qFirewallH') + '</small></span>' + sw('iwFw', true) + '</label></div></div>' +
+    '<details class="adv"><summary>' + t('qFiles') + '</summary><div><small class="muted mono">' + esc((st.dir || '/opt/trusttunnel')) + '/vpn.toml · hosts.toml · credentials.toml · rules.toml</small><small class="muted">' + t('qFilesH') + '</small></div></details>' +
+    (st.configured ? '<label class="srow"><span class="bad">' + t('qForce') + '<small>' + t('qForceH') + '</small></span>' + sw('iwForce', false) + '</label>' : '') +
+    '<small id="iwErr" class="bad"></small>',
+    '<button class="btn" data-close>' + t('cancel') + '</button><button class="btn primary" id="iwGo">' + t('admInstall') + '</button>');
+  var cert = 'self-signed';
+  $('iwGen').onclick = function () { $('iwPass').value = genPass(); };
+  $('iwCert').onclick = function (e) {
+    var b = e.target.closest('button'); if (!b) return; cert = b.dataset.v;
+    [].forEach.call(this.children, function (c) { c.setAttribute('aria-pressed', String(c === b)); });
+    $('iwSelf').hidden = cert !== 'self-signed'; $('iwLe').hidden = cert !== 'letsencrypt'; $('iwOwn').hidden = cert !== 'provided';
+    $('iwCertH').textContent = t(cert === 'self-signed' ? 'qSelfH' : cert === 'letsencrypt' ? 'qLeH' : 'qOwnH');
+  };
+  $('iwGo').onclick = function () {
+    var v = function (id) { return $(id).value.trim(); }, err = '';
+    var args = ['listen=' + v('iwListen'), 'user=' + v('iwUser'), 'pass=' + v('iwPass'), 'cert=' + cert, 'stats=' + ($('iwStats').checked ? 1 : 0), 'firewall=' + ($('iwFw').checked ? 1 : 0)];
+    if (!/^[^\s]+:\d{1,5}$/.test(v('iwListen'))) err = t('qListen');
+    if (!/^[A-Za-z0-9_.@-]{1,64}$/.test(v('iwUser'))) err = t('qUser');
+    if (!/^[A-Za-z0-9_.@%+=!#-]{4,128}$/.test(v('iwPass'))) err = t('qPass');
+    if (cert === 'self-signed') args.push('hostname=' + (v('iwHostS') || 'vpn.endpoint'));
+    if (cert === 'letsencrypt') { if (!v('iwDomain') || !v('iwEmail')) err = t('qDomain') + ', ' + t('qEmail'); args.push('hostname=' + v('iwDomain'), 'email=' + v('iwEmail')); }
+    if (cert === 'provided') { if (!v('iwHostO') || !v('iwChain') || !v('iwKey')) err = t('qOwn'); args.push('hostname=' + v('iwHostO'), 'chain=' + v('iwChain'), 'key=' + v('iwKey')); }
+    if (st.configured) { if (!$('iwForce').checked) err = t('qForce'); args.push('force=1'); }
+    if (err) { $('iwErr').textContent = t('fill') + ': ' + err; return; }
+    a.firstUser = v('iwUser'); persist();
+    $('dlg').close(); startJob(a, 'install', args);
+  };
+}
+
+// install/update run on the server in the background (they survive a sleeping phone or a lost connection); the app polls the log
+function startJob(a, op, args) {
+  ADM.job[a.id] = { op: op, log: '', step: '', pct: 4 }; renderAdminBody();
+  var inner = 'J="$HOME/.tunnel"; rm -f "$J/job.rc"; nohup sh "$J/tunnelctl.sh" ' + op + args.map(function (x) { return ' ' + sq(x); }).join('') + ' > "$J/job.log" 2>&1 < /dev/null; echo $? > "$J/job.rc"';
+  ensureCtl(a).then(function () {
+    var su = sudoOf(a), home = ADM.home[a.id];
+    var cmd = su.pre ? su.pre + 'env HOME=' + sq(home) + ' sh -c ' + sq('(' + inner + ') >/dev/null 2>&1 &') : 'sh -c ' + sq('(' + inner + ') >/dev/null 2>&1 &');
+    return sshRaw(a, cmd, su.stdin, 60);
+  }).then(function (r) {
+    if (r.code !== 0) throw new Error(/password|terminal/i.test(r.err || '') ? t('eSudo') : (r.err || 'exit ' + r.code));
+    setTimeout(function () { pollJob(a); }, 1500);
+  }, function (e) { var j = ADM.job[a.id]; if (j) { j.done = true; j.ok = false; j.error = e.message; } renderAdminBody(); });
+}
+function pollJob(a) {
+  var j = ADM.job[a.id]; if (!j || j.done) return;
+  sshRaw(a, 'J="$HOME/.tunnel"; tail -n 80 "$J/job.log" 2>/dev/null; echo "@@RC$(cat "$J/job.rc" 2>/dev/null)"', '', 30).then(function (r) {
+    var out = r.out || '', i = out.lastIndexOf('@@RC'), rc = out.slice(i + 4).trim();
+    j.log = out.slice(0, i).replace(/\x1b\][^\x07\x1b]*(\x07|\x1b\\)/g, '').replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '').trim(); // terminal colours and links of the wizard
+    var steps = j.log.match(/STEP (\d+)\/(\d+) ([^\n]*)/g);
+    if (steps) { var m = /STEP (\d+)\/(\d+) (.*)/.exec(steps[steps.length - 1]); j.step = t('step', m[1], m[2]) + ' · ' + stepText(m[3]); j.pct = Math.round((m[1] - 0.5) * 100 / m[2]); }
+    if (rc !== '') {
+      j.done = true; j.ok = rc === '0'; j.pct = 100;
+      if (!j.ok) { var e = j.log.split('\n').filter(function (l) { return /ERROR:/.test(l); }).pop(); j.error = e ? e.replace(/^.*ERROR:\s*/, '') : t('admFailed'); }
+      else if (j.op === 'install' && a.firstUser) { var fu = a.firstUser; delete a.firstUser; persist(); setTimeout(function () { admLink(a, fu); }, 600); }
+      ADM.up[a.id] = false; delete ADM.st[a.id]; admRefresh(a, true);
+    }
+    if (S.tab === 'admin') renderAdminBody();
+    if (!j.done) setTimeout(function () { pollJob(a); }, 2500);
+  }, function () { if (!j.done) setTimeout(function () { pollJob(a); }, 5000); });
+}
+function stepText(s) {
+  var map = { 'Downloading TrustTunnel': t('sDownload'), 'Generating settings and certificate': t('sConfig'), 'Installing the service': t('sService'), 'Statistics and firewall': t('sStats'), 'Checking': t('sCheck'), 'Downloading the latest TrustTunnel': t('sDownload'), 'Starting': t('sStart') };
+  return map[s.trim()] || s;
+}
+// keep the users list fresh while the tab is open (one cheap command per minute, nothing when the tab is closed)
+setInterval(function () { var a = S && S.tab === 'admin' && !RT.setOpen && admCur(); if (a && ADM.st[a.id] && !ADM.busy[a.id] && !ADM.job[a.id] && !document.hidden) admRefresh(a, true); }, 60000);
 
 /* ---------- connection log ---------- */
 function renderLog() {

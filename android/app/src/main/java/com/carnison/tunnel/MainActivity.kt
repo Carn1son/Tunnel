@@ -41,6 +41,7 @@ import java.util.zip.ZipOutputStream
 class MainActivity : Activity() {
     companion object {
         private const val REQ_VPN = 1
+        private const val REQ_KEY = 3
         private const val REPO = "Carn1son/Tunnel"
         private const val APK = "Tunnel.apk"
     }
@@ -52,6 +53,7 @@ class MainActivity : Activity() {
     private var pendingLink: String? = null
     private var pendingConnect: Pair<JSONObject, Any?>? = null
     private var downloadedApk: File? = null
+    private var pendingKeyReq: Any? = null
 
     private val stateListener: (Int) -> Unit = { s -> event(JSONObject().put("t", "vpn").put("state", s)) }
     private val connListener: (JSONObject) -> Unit = { info -> event(JSONObject().put("t", "conn").put("info", info)) }
@@ -180,6 +182,14 @@ class MainActivity : Activity() {
                 Vpn.prefs(this).edit().putString("state", st).putString("lang", lang).putString("theme", theme).apply()
                 applyTheme(theme != "light")
             }
+            "ssh" -> io.execute {
+                val conn = m.optJSONObject("conn") ?: JSONObject()
+                try { reply(req, Ssh.exec(conn, m.optString("cmd"), m.optString("stdin"), m.optInt("timeout", 120))) }
+                catch (e: Ssh.SshError) { reply(req, JSONObject().put("fp", e.fp ?: ""), e.code + ": " + e.message) }
+                catch (e: Exception) { reply(req, null, "connect: " + (e.message ?: e.javaClass.simpleName)) }
+            }
+            "ssh-drop" -> m.optJSONObject("conn")?.let { c -> io.execute { Ssh.drop(c) } }
+            "pick-key" -> { pendingKeyReq = req; runCatching { startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*"), REQ_KEY) }.onFailure { reply(req, null) } }
             "theme" -> {
                 val dark = m.optBoolean("dark", true)
                 Vpn.prefs(this).edit().putString("theme", if (dark) "dark" else "light").apply()
@@ -233,6 +243,12 @@ class MainActivity : Activity() {
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQ_KEY) {
+            val r = pendingKeyReq; pendingKeyReq = null
+            val text = data?.data?.takeIf { resultCode == RESULT_OK }?.let { u -> runCatching { contentResolver.openInputStream(u)?.use { it.readBytes().toString(Charsets.UTF_8) } }.getOrNull() }
+            reply(r, text)
+            return
+        }
         if (requestCode != REQ_VPN) return
         val p = pendingConnect ?: return
         pendingConnect = null

@@ -22,6 +22,14 @@
 - Split tunneling by IP address, subnet or IP with port
 - Excluded routes for local networks
 
+### Server Management
+- Connects to your own server over SSH: password or key, root or sudo, any port
+- Installs TrustTunnel with the questions of the official wizard and their defaults
+- Works without a domain: self-signed certificate by default, Let's Encrypt or your own certificate optional
+- Users: add, delete, new passwords, connection links
+- Traffic and last activity of every user
+- Restart, update, logs; statistics every 5 minutes at the lowest priority
+
 ### Connection Log
 - App, destination and route of every connection
 - Filter, pause and clear

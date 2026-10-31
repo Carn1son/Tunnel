@@ -23,6 +23,8 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" GeneratePathProperty="true" />
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <!-- SSH for the Server tab; its dlls go next to Tunnel.exe (the installer copies every dll of the build) -->
+    <PackageReference Include="SSH.NET" Version="2024.2.0" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.Net.Http" />
