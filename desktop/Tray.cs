@@ -1,6 +1,6 @@
 // The tray icon: the same plain chip as the Android status bar and quick settings tile, drawn in one colour
 // that suits the taskbar (white on a dark one, black on a light one).
-// Off: faint. Connecting: fills up from the bottom like an aquarium, again and again. On: solid.
+// Off: faint. Connecting: fills up from the bottom like an aquarium, again and again. On: solid, the tunnel blue.
 using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -61,7 +61,7 @@ namespace Tunnel
                     g.PixelOffsetMode = PixelOffsetMode.HighQuality;
                     g.Clear(Color.Transparent);
                     g.ScaleTransform(size / 100f, size / 100f);
-                    if (state == Core.Connected) Chip(g, ink, 255);
+                    if (state == Core.Connected) Chip(g, ink, 255, Color.FromArgb(0x3b, 0x82, 0xf6)); // on: the tunnel lights up blue
                     else if (state == Core.Disconnected || state < 0) Chip(g, ink, 110);
                     else
                     {
@@ -80,7 +80,7 @@ namespace Tunnel
         }
 
         /// The chip of ic_tile.xml (100×100): pins, a body with the tunnel cut out, and the door inside it.
-        static void Chip(Graphics g, Color ink, int alpha)
+        static void Chip(Graphics g, Color ink, int alpha, Color? doorColor = null)
         {
             var c = Color.FromArgb(alpha, ink);
             using (var pen = new Pen(c, 7f) { StartCap = LineCap.Round, EndCap = LineCap.Round })
@@ -93,10 +93,11 @@ namespace Tunnel
             using (var cut = Arch(34, 82, 16))
             using (var door = Arch(42, 82, 8, 57))
             using (var b = new SolidBrush(c))
+            using (var d = new SolidBrush(doorColor ?? c))
             {
                 var r = new Region(body); r.Exclude(cut);
                 g.FillRegion(b, r); r.Dispose();
-                g.FillPath(b, door);
+                g.FillPath(d, door);
             }
         }
 
