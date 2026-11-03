@@ -217,7 +217,7 @@ open_port() { # port
 # like an ordinary site (nginx-looking headers and error pages). It listens on 127.0.0.1 only, never outside.
 SITE_DIR="/var/lib/tunnel-site"
 SITE_PORT="18080"
-SITE_URL="https://raw.githubusercontent.com/Carn1son/Tunnel/main/site/index.html"
+SITE_URL="https://raw.githubusercontent.com/Carn1son/Tunnel/main/cover/index.html"
 SITE_MARK="# tunnel-site"
 
 site_on_toml() { grep -q "^$SITE_MARK" "$DIR/vpn.toml" 2>/dev/null; }
