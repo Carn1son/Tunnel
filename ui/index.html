@@ -187,6 +187,9 @@ textarea.lines4 { min-height: 0; padding-bottom: 0; height: calc(6em + 9px); } /
 .logt td.vpn { color: var(--accent); }
 .logt td.byp { color: var(--muted); }
 .logt td.rej { color: var(--err); }
+.secttl { margin: 4px 2px -4px; }
+#sLevel button { white-space: nowrap !important; }
+.col-apps .head .eyebrow { white-space: nowrap; }
 .logt td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .logwrap { max-height: calc(100vh - 230px); overflow: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
 
@@ -255,6 +258,12 @@ details.adv[open] > div { display: grid; gap: 11px; margin-top: 8px; }
 
   .view { overflow: hidden; display: flex; flex-direction: column; padding: 10px 12px; }
   .view > .inner { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; max-width: none; }
+  /* the Tunnel tab with the routing profiles above it is taller than the screen: this one scrolls */
+  .view.scroll { overflow-y: auto; display: block; }
+  .view.scroll > .inner { min-height: 0; flex: none; }
+  .view.scroll .profedit, .view.scroll .profedit .rules { flex: none; }
+  .view.scroll #pRules { flex: none; min-height: 0; padding-bottom: 0; height: calc(6em + 9px); }
+  .view.scroll .splitcols .box { min-height: 0; }
   h2 { font-size: 18px; }
   .head { flex-wrap: nowrap; }
   .head .btn .bl, #addProf .bl { display: none; }
@@ -769,7 +778,7 @@ var L = {
   fill: 'Заполните это поле', nameUsed: 'Это имя уже занято', badAddr: 'Формат x.x.x.x[:порт] или домен',
   delServerQ: 'Удалить сервер?', delServerD: 'Сервер <b>{0}</b> будет удалён', created: 'Сервер <b>{0}</b> создан', deleted: 'Сервер <b>{0}</b> удалён', savedT: 'Изменения сохранены', linkCopied: 'Ссылка на сервер скопирована', duplicated: 'Сервер продублирован',
   importT: 'Импорт сервера', importD: 'Вставьте конфиг, выгруженный с сервера (TOML), или ссылку tt://. Можно выбрать файл.', importFile: 'Выбрать файл', importBad: 'Не удалось разобрать конфиг', linkLater: 'Ссылки tt:// разбираются только в приложении для Windows',
-  profiles: 'Профили', addProfile: 'Добавить профиль', profEmpty: 'Пустой профиль', profRu: 'Россия напрямую', profRuD: 'Российские сайты и сервисы идут напрямую, остальное — через VPN', profHapp: 'Импорт из Happ…', happT: 'Импорт маршрутизации из Happ', happD: 'Вставьте ссылку happ://routing/… или JSON маршрутизации. Правила «direct» станут списком «в обход»; geosite:ru заменится встроенным списком российских сайтов.', happBad: 'Не удалось разобрать маршрутизацию Happ', happSkip: 'Пропущено (не поддерживается TrustTunnel): {0}', profCreated: 'Профиль <b>{0}</b> создан', useProfQ: 'Использовать профиль для сервера?', useProfD: 'Сервер <b>{0}</b> будет работать с профилем <b>{1}</b>.', useIt: 'Использовать', defaultProfile: 'Профиль по умолчанию', mode: 'Режим', modeVpn: 'Через VPN', modeBypass: 'В обход',
+  profiles: 'Профили', appsIps: 'Приложения и IP-адреса', addProfile: 'Добавить профиль', profEmpty: 'Пустой профиль', profRu: 'Россия напрямую', profRuD: 'Российские сайты и сервисы идут напрямую, остальное — через VPN', profHapp: 'Импорт из Happ…', happT: 'Импорт маршрутизации из Happ', happD: 'Вставьте ссылку happ://routing/… или JSON маршрутизации. Правила «direct» станут списком «в обход»; geosite:ru заменится встроенным списком российских сайтов.', happBad: 'Не удалось разобрать маршрутизацию Happ', happSkip: 'Пропущено (не поддерживается TrustTunnel): {0}', profCreated: 'Профиль <b>{0}</b> создан', useProfQ: 'Использовать профиль для сервера?', useProfD: 'Сервер <b>{0}</b> будет работать с профилем <b>{1}</b>.', useIt: 'Использовать', defaultProfile: 'Профиль по умолчанию', mode: 'Режим', modeVpn: 'Через VPN', modeBypass: 'В обход',
   modeVpnD: 'Правила работают как список «пустить через VPN», остальное — напрямую.', vpnOnlyN: 'Через VPN идут только адреса из списка ({0}). Всё остальное, например YouTube, если его нет в списке, — напрямую.', vpnOnlyNone: 'Список пуст — через VPN не пойдёт ничего. Добавьте правила или выберите «В обход».', modeBypassD: 'Весь трафик идёт через VPN, кроме подходящего под правила.',
   rules: 'Правила, по одному в строке', rulesH: 'Домены любого уровня, IP-адрес, IP с портом, IP с маской', delRules: 'Удалить все правила', rename: 'Переименовать', delProfile: 'Удалить профиль',
   usedBy: 'Используется серверами', none: 'нет', profileName: 'Название профиля', delProfileQ: 'Удалить профиль?', delRulesQ: 'Удалить все правила?',
@@ -815,7 +824,7 @@ var L = {
   fill: 'Please fill out this field', nameUsed: 'This name is already used', badAddr: 'Use x.x.x.x[:port] or a domain',
   delServerQ: 'Delete server?', delServerD: 'Server <b>{0}</b> will be deleted', created: 'Server <b>{0}</b> created', deleted: 'Server <b>{0}</b> deleted', savedT: 'Changes saved', linkCopied: 'Server link copied', duplicated: 'Server duplicated',
   importT: 'Import server', importD: 'Paste the config exported by the server (TOML) or a tt:// link. You can also choose a file.', importFile: 'Choose file', importBad: 'Could not parse the config', linkLater: 'tt:// links are decoded only in the Windows app',
-  profiles: 'Profiles', addProfile: 'Add profile', profEmpty: 'Empty profile', profRu: 'Russia direct', profRuD: 'Russian sites and services go direct, everything else through the VPN', profHapp: 'Import from Happ…', happT: 'Import routing from Happ', happD: 'Paste a happ://routing/… link or routing JSON. “direct” rules become the bypass list; geosite:ru is replaced with the built-in list of Russian sites.', happBad: 'Could not parse the Happ routing', happSkip: 'Skipped (not supported by TrustTunnel): {0}', profCreated: 'Profile <b>{0}</b> created', useProfQ: 'Use the profile for the server?', useProfD: 'Server <b>{0}</b> will use profile <b>{1}</b>.', useIt: 'Use', defaultProfile: 'Default profile', mode: 'Mode', modeVpn: 'VPN', modeBypass: 'Bypass',
+  profiles: 'Profiles', appsIps: 'Apps and IP addresses', addProfile: 'Add profile', profEmpty: 'Empty profile', profRu: 'Russia direct', profRuD: 'Russian sites and services go direct, everything else through the VPN', profHapp: 'Import from Happ…', happT: 'Import routing from Happ', happD: 'Paste a happ://routing/… link or routing JSON. “direct” rules become the bypass list; geosite:ru is replaced with the built-in list of Russian sites.', happBad: 'Could not parse the Happ routing', happSkip: 'Skipped (not supported by TrustTunnel): {0}', profCreated: 'Profile <b>{0}</b> created', useProfQ: 'Use the profile for the server?', useProfD: 'Server <b>{0}</b> will use profile <b>{1}</b>.', useIt: 'Use', defaultProfile: 'Default profile', mode: 'Mode', modeVpn: 'VPN', modeBypass: 'Bypass',
   modeVpnD: 'Rules act as an allow list for the tunnel, everything else goes direct.', vpnOnlyN: 'Only the listed addresses ({0}) go through the VPN. Everything else goes direct.', vpnOnlyNone: 'The list is empty: nothing goes through the VPN. Add rules or choose Bypass.', modeBypassD: 'All traffic goes through VPN except what matches the rules.',
   rules: 'Rules, one per line', rulesH: 'Domains of any level, IP address, IP with port, IP with mask', delRules: 'Delete all rules', rename: 'Rename', delProfile: 'Delete profile',
   usedBy: 'Used by servers', none: 'none', profileName: 'Profile name', delProfileQ: 'Delete profile?', delRulesQ: 'Delete all rules?',
@@ -853,11 +862,10 @@ var DEF = {
   lang: 'ru', theme: 'dark', tab: 'servers', sel: 's1',
   servers: [
     { id: 's1', name: 'VPS Амстердам', addr: '203.0.113.24:443', host: 'vpn.example.com', user: 'user', pass: 'secret', proto: 'http2', profile: 'p1', dns: '', ipv6: true, sni: '', fp: 'chrome', auth: 'none', cr: '', crKey: '', pem: '' },
-    { id: 's2', name: 'Домашний', addr: '198.51.100.7:8443', host: 'home.example.net', user: 'me', pass: 'secret', proto: 'quic', profile: 'p2', dns: 'tls://1.1.1.1', ipv6: false, sni: '', fp: 'chrome', auth: 'none', cr: '', crKey: '', pem: '' }
+    { id: 's2', name: 'Домашний', addr: '198.51.100.7:8443', host: 'home.example.net', user: 'me', pass: 'secret', proto: 'quic', profile: 'p1', dns: 'tls://1.1.1.1', ipv6: false, sni: '', fp: 'chrome', auth: 'none', cr: '', crKey: '', pem: '' }
   ],
   profiles: [
-    { id: 'p1', name: 'Профиль по умолчанию', mode: 'bypass', rules: '' },
-    { id: 'p2', name: 'Работа', mode: 'vpn', rules: 'youtube.com\ngoogle.com\n140.82.112.0/20\n10.20.0.5:22' }
+    { id: 'p1', name: 'Профиль по умолчанию', mode: 'bypass', rules: '' }
   ],
   split: {
     on: true, mode: 'exclude',
@@ -904,6 +912,14 @@ function fill(o, def) {
   return o;
 }
 var S = null;
+// the old demo profile "Работа" is not kept
+function dropDemoProfile(st) {
+  if (!st || !Array.isArray(st.profiles)) return;
+  var i = st.profiles.findIndex(function (p) { return p.id === 'p2' && p.name === 'Работа' && /^youtube\.com\ngoogle\.com\n140\.82\.112\.0\/20/.test(p.rules || ''); });
+  if (i < 0 || st.profiles.length < 2) return;
+  st.profiles.splice(i, 1);
+  (st.servers || []).forEach(function (sv) { if (sv.profile === 'p2') sv.profile = st.profiles[0].id; });
+}
 var RT = { byId: {}, conn: 'off', since: 0, count: 0, viaVpn: 0, log: [], paused: false, q: '', setOpen: false, profSel: null, toml: null, reconnect: false, upd: null };
 var saveTimer = null;
 function persist() {
@@ -952,7 +968,7 @@ var IC = {
 var TABS = ['servers', 'routing', 'split', 'admin', 'log'];
 
 /* ---------- layout: tab order, names, icons, header, settings sections — set with the layout editor (docs/layout-editor.html) */
-var TN_LAYOUT_DEFAULT = {};
+var TN_LAYOUT_DEFAULT = {"scope": "all", "tabbar": "bottom", "tabs": ["servers", "split", "admin", "log"], "header": [{"id": "brand"}, {"id": "status"}, {"id": "reBtn"}, {"id": "topGrow"}, {"id": "uiBtn"}, {"id": "setBtn"}], "settings": [{"id": "general"}, {"id": "launch"}, {"id": "excluded", "hidden": true}, {"id": "logging"}, {"id": "updates"}, {"id": "about"}], "strings": {"ru": {"logging": "Журнал", "alwaysOn": "Постоянный VPN", "alwaysOnD": "Включается в настройках Android: VPN → Tunnel → «Постоянный VPN»", "modeBypass": "Напрямую", "happD": "", "sExclude": "Выбранное — напрямую, в обход VPN", "vpnOnlyNone": "Список пуст — через VPN не пойдёт ничего. Добавьте правила или выберите «Напрямую» - для корректной работы.", "level": "Режим", "lvBasic": "По умолчанию"}}};
 var LAYOUT = window.TN_LAYOUT || TN_LAYOUT_DEFAULT;
 function layoutOn() { var Ly = LAYOUT || {}; return window.TN_LAYOUT_PREVIEW || !Ly.scope || Ly.scope === 'all' || (Ly.scope === 'android' && ANDROID) || (Ly.scope === 'pc' && !ANDROID); }
 function applyLayout() {
@@ -990,6 +1006,7 @@ function renderStatus() {
   document.documentElement.style.setProperty('--logoacc', RT.conn === 'on' ? 'var(--accent)' : RT.conn === 'wait' ? 'var(--warn)' : 'var(--off)');
 }
 function render() {
+  $('view').classList.remove('scroll');
   renderShell();
   $('setPane').hidden = !RT.setOpen; $('setShade').hidden = !RT.setOpen;
   if (RT.setOpen) renderSettings();
@@ -1330,7 +1347,7 @@ var RU_DIRECT = ['*.ru', '*.su', '*.xn--p1ai', '*.xn--80adxhks', '*.moscow', '*.
 
 function addProfile(q, skipped) {
   q.id = uid(); var n = 1, base = q.name; while (S.profiles.some(function (x) { return x.name === q.name; })) q.name = base + ' ' + (++n);
-  S.profiles.push(q); RT.profSel = q.id; S.tab = 'routing'; persist(); render();
+  S.profiles.push(q); RT.profSel = q.id; S.tab = TABS.indexOf('routing') >= 0 ? 'routing' : 'split'; persist(); render();
   toast(t('profCreated', esc(q.name)) + (skipped && skipped.length ? '<br>' + t('happSkip', esc(skipped.slice(0, 6).join(', ') + (skipped.length > 6 ? '…' : ''))) : ''));
   var s = cur();
   if (s && s.profile !== q.id) setTimeout(function () { confirmDlg(t('useProfQ'), t('useProfD', esc(s.name), esc(q.name)), t('useIt'), function () { s.profile = q.id; persist(); render(); }); }, 400);
@@ -1379,19 +1396,20 @@ function happDlg(prefill) {
   };
   if (prefill) { $('happTxt').value = prefill; $('happGo').click(); }
 }
-function renderRouting() {
+function renderRouting(target) {
   if (!S.profiles.length) S.profiles.push({ id: uid(), name: t('defaultProfile'), mode: 'bypass', rules: '' });
   if (!S.profiles.some(function (p) { return p.id === RT.profSel; })) RT.profSel = S.profiles[0].id;
   var p = S.profiles.filter(function (q) { return q.id === RT.profSel; })[0];
   var used = S.servers.filter(function (s) { return s.profile === p.id; }).map(function (s) { return esc(s.name); }).join(', ') || t('none');
-  $('view').innerHTML = '<div class="inner"><div class="head"><h2>' + t('routing') + '</h2></div><div class="rgrid">' +
+  var rhtml = '<div class="rgrid">' +
     '<div class="box profbox" style="padding:8px"><div class="eyebrow" style="padding:4px 6px">' + t('profiles') + '</div><div id="profList">' + S.profiles.map(function (q) {
       return '<div class="prof' + (q.id === p.id ? ' sel' : '') + '" data-id="' + q.id + '"><b>' + esc(q.name) + '</b><span class="tag' + (q.mode === 'vpn' ? ' a' : '') + '">' + (q.mode === 'vpn' ? t('modeVpn') : t('modeBypass')) + '</span></div>';
     }).join('') + '</div><button class="btn sm" id="addProf" style="margin:6px" title="' + t('addProfile') + '">' + IC.plus + '<span class="bl">' + t('addProfile') + '</span></button></div>' +
     '<div class="box profedit"><div class="head"><b style="font-size:16px;flex:1">' + esc(p.name) + '</b><button class="iconbtn" id="profMenu">' + IC.dots + '</button></div>' +
     '<div class="field"><span>' + t('mode') + '</span><div class="seg" id="pMode"><button type="button" data-v="vpn" aria-pressed="' + (p.mode === 'vpn') + '">' + t('modeVpn') + '</button><button type="button" data-v="bypass" aria-pressed="' + (p.mode === 'bypass') + '">' + t('modeBypass') + '</button></div><small>' + (p.mode === 'vpn' ? t('modeVpnD') : t('modeBypassD')) + '</small>' + (p.mode === 'vpn' ? '<div class="note warn">' + (lines(p.rules).length ? t('vpnOnlyN', lines(p.rules).length) : t('vpnOnlyNone')) + '</div>' : '') + '</div>' +
     '<label class="field rules"><span>' + t('rules') + '</span><textarea id="pRules" spellcheck="false" placeholder="example.com\n1.2.3.4\n1.2.3.4:443\n10.0.0.0/8">' + esc(p.rules) + '</textarea><small>' + t('rulesH') + '</small></label>' +
-    '<div class="muted used" style="font-size:12px">' + t('usedBy') + ': ' + used + '</div></div></div></div>';
+    '<div class="muted used" style="font-size:12px">' + t('usedBy') + ': ' + used + '</div></div></div>';
+  if (target) target.innerHTML = rhtml; else $('view').innerHTML = '<div class="inner"><div class="head"><h2>' + t('routing') + '</h2></div>' + rhtml + '</div>';
   $('profList').onclick = function (e) { var r = e.target.closest('.prof'); if (r) { RT.profSel = r.dataset.id; render(); } };
   $('pMode').onclick = function (e) { var b = e.target.closest('button'); if (!b || b.dataset.v === p.mode) return; p.mode = b.dataset.v; persist(); render(); };
   $('pRules').oninput = function () { p.rules = this.value; persist(); };
@@ -1426,7 +1444,10 @@ function validIp(v) {
 }
 function renderSplit() {
   var sp = S.split;
+  var merged = TABS.indexOf('routing') < 0; // no Routing tab: its profiles are shown here, above the apps and addresses
+  $('view').classList.toggle('scroll', merged);
   $('view').innerHTML = '<div class="inner"><div class="head"><h2>' + t('split') + '</h2></div>' +
+    (merged ? '<div class="eyebrow secttl">' + t('routing') + '</div><div id="routeBox"></div><div class="eyebrow secttl">' + t('appsIps') + '</div>' : '') +
     '<div class="box splittop"><div class="srow"><div><b>' + t('splitOn') + '</b><small>' + t('splitOnD') + '</small></div>' + sw('spOn', sp.on) + '</div>' +
     '<div class="field"' + (sp.on ? '' : ' style="opacity:.5;pointer-events:none"') + '><span>' + t('splitMode') + '</span><div class="seg" id="spMode"><button type="button" data-v="exclude" aria-pressed="' + (sp.mode === 'exclude') + '">' + t('sExclude') + '</button><button type="button" data-v="include" aria-pressed="' + (sp.mode === 'include') + '">' + t('sInclude') + '</button></div><div class="note">' + (sp.mode === 'exclude' ? t('sExcludeD') : t('sIncludeD') + (ANDROID ? '<br>' + t('androidIncNote') : '') + (sp.apps.some(function (a) { return a.on; }) || sp.ips.some(function (i) { return i.on; }) ? '' : '<br>' + t('splitIncEmpty'))) + '</div></div></div>' +
     '<div class="seg subtabs" id="spTabs"><button type="button" data-v="apps" aria-pressed="' + (RT.splitTab !== 'ips') + '">' + t('apps') + ' · ' + sp.apps.length + '</button><button type="button" data-v="ips" aria-pressed="' + (RT.splitTab === 'ips') + '">' + t('ipsS') + ' · ' + sp.ips.length + '</button></div>' +
@@ -1437,6 +1458,7 @@ function renderSplit() {
       '<div class="addrow"><input type="text" id="ipIn" class="mono" placeholder="' + t('ipPh') + '" spellcheck="false"><input type="text" id="ipNote" placeholder="' + t('notePh') + '"><button class="btn primary" id="ipAdd">' + t('add') + '</button></div><small id="ipErr" class="bad"></small>' +
       '<div class="items" id="ipList">' + (sp.ips.length ? sp.ips.map(function (i) { return '<div class="item' + (i.on ? '' : ' off') + '" data-id="' + i.id + '" style="grid-template-columns:minmax(0,1fr) auto auto"><div class="t"><b class="mono" style="font-weight:500">' + esc(i.v) + '</b><small>' + esc(i.note || '') + '</small></div>' + sw('ip_' + i.id, i.on) + '<button class="x" data-del aria-label="' + t('del') + '">×</button></div>'; }).join('') : '<div class="empty" style="padding:18px">' + t('ipsEmpty') + '</div>') + '</div></div>' +
     '</div></div>';
+  if (merged) renderRouting($('routeBox'));
   $('spTabs').onclick = function (e) { var b = e.target.closest('button'); if (!b) return; RT.splitTab = b.dataset.v; render(); };
   $('spOn').onchange = function () { sp.on = this.checked; persist(); render(); };
   $('spMode').onclick = function (e) { var b = e.target.closest('button'); if (!b) return; sp.mode = b.dataset.v; persist(); render(); };
@@ -1938,7 +1960,7 @@ $('reBtn').onclick = reconnect;
 if (HOST) {
   ask('ready').then(function (r) {
     var saved = null; try { saved = r.state ? JSON.parse(r.state) : null; } catch (e) {}
-    S = fill(saved, BLANK);
+    S = fill(saved, BLANK); dropDemoProfile(S);
     S.tab = 'servers';
     render();
     onVpnState(r.vpn);
@@ -1948,7 +1970,7 @@ if (HOST) {
   });
 } else {
   try { S = JSON.parse(localStorage.getItem('tunnel.ui') || 'null'); } catch (e) { S = null; }
-  S = fill(S && S.servers ? S : null, DEF);
+  S = fill(S && S.servers ? S : null, DEF); dropDemoProfile(S);
   render();
 }
 })();
