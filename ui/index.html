@@ -766,7 +766,7 @@ var L = {
   fill: 'Заполните это поле', nameUsed: 'Это имя уже занято', badAddr: 'Формат x.x.x.x[:порт] или домен',
   delServerQ: 'Удалить сервер?', delServerD: 'Сервер <b>{0}</b> будет удалён', created: 'Сервер <b>{0}</b> создан', deleted: 'Сервер <b>{0}</b> удалён', savedT: 'Изменения сохранены', linkCopied: 'Ссылка на сервер скопирована', duplicated: 'Сервер продублирован',
   importT: 'Импорт сервера', importD: 'Вставьте конфиг, выгруженный с сервера (TOML), или ссылку tt://. Можно выбрать файл.', importFile: 'Выбрать файл', importBad: 'Не удалось разобрать конфиг', linkLater: 'Ссылки tt:// разбираются только в приложении для Windows',
-  profiles: 'Профили', addProfile: 'Добавить профиль', defaultProfile: 'Профиль по умолчанию', mode: 'Режим', modeVpn: 'Через VPN', modeBypass: 'В обход',
+  profiles: 'Профили', addProfile: 'Добавить профиль', profEmpty: 'Пустой профиль', profRu: 'Россия напрямую', profRuD: 'Российские сайты и сервисы идут напрямую, остальное — через VPN', profHapp: 'Импорт из Happ…', happT: 'Импорт маршрутизации из Happ', happD: 'Вставьте ссылку happ://routing/… или JSON маршрутизации. Правила «direct» станут списком «в обход»; geosite:ru заменится встроенным списком российских сайтов.', happBad: 'Не удалось разобрать маршрутизацию Happ', happSkip: 'Пропущено (не поддерживается TrustTunnel): {0}', profCreated: 'Профиль <b>{0}</b> создан', useProfQ: 'Использовать профиль для сервера?', useProfD: 'Сервер <b>{0}</b> будет работать с профилем <b>{1}</b>.', useIt: 'Использовать', defaultProfile: 'Профиль по умолчанию', mode: 'Режим', modeVpn: 'Через VPN', modeBypass: 'В обход',
   modeVpnD: 'Правила работают как список «пустить через VPN», остальное — напрямую.', vpnOnlyN: 'Через VPN идут только адреса из списка ({0}). Всё остальное, например YouTube, если его нет в списке, — напрямую.', vpnOnlyNone: 'Список пуст — через VPN не пойдёт ничего. Добавьте правила или выберите «В обход».', modeBypassD: 'Весь трафик идёт через VPN, кроме подходящего под правила.',
   rules: 'Правила, по одному в строке', rulesH: 'Домены любого уровня, IP-адрес, IP с портом, IP с маской', delRules: 'Удалить все правила', rename: 'Переименовать', delProfile: 'Удалить профиль',
   usedBy: 'Используется серверами', none: 'нет', profileName: 'Название профиля', delProfileQ: 'Удалить профиль?', delRulesQ: 'Удалить все правила?',
@@ -812,7 +812,7 @@ var L = {
   fill: 'Please fill out this field', nameUsed: 'This name is already used', badAddr: 'Use x.x.x.x[:port] or a domain',
   delServerQ: 'Delete server?', delServerD: 'Server <b>{0}</b> will be deleted', created: 'Server <b>{0}</b> created', deleted: 'Server <b>{0}</b> deleted', savedT: 'Changes saved', linkCopied: 'Server link copied', duplicated: 'Server duplicated',
   importT: 'Import server', importD: 'Paste the config exported by the server (TOML) or a tt:// link. You can also choose a file.', importFile: 'Choose file', importBad: 'Could not parse the config', linkLater: 'tt:// links are decoded only in the Windows app',
-  profiles: 'Profiles', addProfile: 'Add profile', defaultProfile: 'Default profile', mode: 'Mode', modeVpn: 'VPN', modeBypass: 'Bypass',
+  profiles: 'Profiles', addProfile: 'Add profile', profEmpty: 'Empty profile', profRu: 'Russia direct', profRuD: 'Russian sites and services go direct, everything else through the VPN', profHapp: 'Import from Happ…', happT: 'Import routing from Happ', happD: 'Paste a happ://routing/… link or routing JSON. “direct” rules become the bypass list; geosite:ru is replaced with the built-in list of Russian sites.', happBad: 'Could not parse the Happ routing', happSkip: 'Skipped (not supported by TrustTunnel): {0}', profCreated: 'Profile <b>{0}</b> created', useProfQ: 'Use the profile for the server?', useProfD: 'Server <b>{0}</b> will use profile <b>{1}</b>.', useIt: 'Use', defaultProfile: 'Default profile', mode: 'Mode', modeVpn: 'VPN', modeBypass: 'Bypass',
   modeVpnD: 'Rules act as an allow list for the tunnel, everything else goes direct.', vpnOnlyN: 'Only the listed addresses ({0}) go through the VPN. Everything else goes direct.', vpnOnlyNone: 'The list is empty: nothing goes through the VPN. Add rules or choose Bypass.', modeBypassD: 'All traffic goes through VPN except what matches the rules.',
   rules: 'Rules, one per line', rulesH: 'Domains of any level, IP address, IP with port, IP with mask', delRules: 'Delete all rules', rename: 'Rename', delProfile: 'Delete profile',
   usedBy: 'Used by servers', none: 'none', profileName: 'Profile name', delProfileQ: 'Delete profile?', delRulesQ: 'Delete all rules?',
@@ -1282,6 +1282,7 @@ function importDlg(prefill) {
   }
   $('impGo').onclick = function () {
     var txt = $('impTxt').value.trim();
+    if (/^happ:\/\/routing\//i.test(txt)) { $('dlg').close(); setTimeout(function () { happDlg(txt); }, 50); return; }
     if (/^(tt|trusttunnel):\/\//i.test(txt)) {
       if (!HOST) { $('impErr').textContent = t('linkLater'); return; }
       ask('link-decode', { uri: txt }).then(function (toml) { if (!fromToml(parseToml(toml))) $('impErr').textContent = t('badLink'); }, function () { $('impErr').textContent = t('badLink'); });
@@ -1293,6 +1294,65 @@ function importDlg(prefill) {
 }
 
 /* ---------- routing ---------- */
+// Russian sites for "Russia direct" and for Happ's geosite:ru: every .ru/.su/.рф domain plus big Russian services elsewhere
+var RU_DIRECT = ['*.ru', '*.su', '*.xn--p1ai', '*.xn--80adxhks', '*.moscow', '*.tatar', '*.xn--d1acj3b'].concat([
+  'yandex.net', 'yandex.com', 'yastatic.net', 'yandex.cloud', 'yandexcloud.net', 'yandex.by', 'yandex.kz',
+  'vk.com', 'vk.me', 'vkuser.net', 'userapi.com', 'vk-portal.net', 'mycdn.me', 'vkuseraudio.net', 'vkuservideo.net',
+  'sberbank.com', 'sber.games', 'qiwi.com', '2gis.com', 'kaspersky.com', 'kaspersky-labs.com', 'drweb.com',
+  'avito.st', 'wbstatic.net', 'wbbasket.ru', 'ozonusercontent.com'
+].reduce(function (a, d) { return a.concat([d, '*.' + d]); }, []));
+
+function addProfile(q, skipped) {
+  q.id = uid(); var n = 1, base = q.name; while (S.profiles.some(function (x) { return x.name === q.name; })) q.name = base + ' ' + (++n);
+  S.profiles.push(q); RT.profSel = q.id; S.tab = 'routing'; persist(); render();
+  toast(t('profCreated', esc(q.name)) + (skipped && skipped.length ? '<br>' + t('happSkip', esc(skipped.slice(0, 6).join(', ') + (skipped.length > 6 ? '…' : ''))) : ''));
+  var s = cur();
+  if (s && s.profile !== q.id) setTimeout(function () { confirmDlg(t('useProfQ'), t('useProfD', esc(s.name), esc(q.name)), t('useIt'), function () { s.profile = q.id; persist(); render(); }); }, 400);
+}
+
+/* Happ (Xray) routing: happ://routing/onadd/<base64 JSON> or the JSON itself -> a Tunnel profile */
+function happToProfile(text) {
+  text = String(text || '').trim(); var json = text;
+  var m = /^happ:\/\/routing\/(?:on)?add\/(.+)$/i.exec(text);
+  if (m) {
+    try { var b = m[1].replace(/-/g, '+').replace(/_/g, '/').replace(/\s+/g, ''); while (b.length % 4) b += '='; json = decodeURIComponent(escape(atob(b))); } catch (e) { return null; }
+  }
+  var o; try { o = JSON.parse(json); } catch (e) { return null; }
+  if (!o || !Array.isArray(o.Rules || o.rules)) return null;
+  var direct = [], proxy = [], skipped = [];
+  function conv(v, out) {
+    v = String(v || '').trim(); if (!v) return;
+    var low = v.toLowerCase().replace(/^geosite8/, 'geosite:');
+    if (/^geosite:(category-)?ru$/.test(low)) { RU_DIRECT.forEach(function (d) { out.push(d); }); return; }
+    if (/^geoip:/.test(low) || /^geosite:/.test(low) || /^(regexp|keyword|ext):/.test(low)) { skipped.push(v); return; }
+    var d = low.replace(/^(domain|full):/, '');
+    if (/^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/.test(d) || d.indexOf(':') >= 0 && /^[0-9a-f:\/]+$/.test(d)) { out.push(d); return; }
+    if (!/^[a-z0-9.*_-]+$/.test(d)) { skipped.push(v); return; }
+    out.push(d); if (/^full:/.test(low) || d.indexOf('*') === 0) return; out.push('*.' + d);
+  }
+  (o.Rules || o.rules).forEach(function (r) {
+    var ob = String(r.Outbound || r.outboundTag || r.outbound || '').toLowerCase();
+    var out = ob === 'direct' ? direct : ob === 'proxy' ? proxy : null;
+    var items = [].concat(r.Domain || r.domain || [], r.IP || r.ip || []);
+    if (!out) { if (items.length) skipped.push(ob || '?'); return; }
+    items.forEach(function (v) { conv(v, out); });
+  });
+  function uniq(a) { return a.filter(function (x, i) { return a.indexOf(x) === i; }); }
+  direct = uniq(direct); proxy = uniq(proxy);
+  if (!direct.length && !proxy.length) return null;
+  var p = direct.length ? { name: o.Name || 'Happ', mode: 'bypass', rules: direct.join('\n') } : { name: o.Name || 'Happ', mode: 'vpn', rules: proxy.join('\n') };
+  return { profile: p, skipped: skipped };
+}
+function happDlg(prefill) {
+  openDlg(t('happT'), '<p class="muted" style="margin:0">' + t('happD') + '</p><textarea id="happTxt" style="min-height:140px" spellcheck="false" placeholder="happ://routing/onadd/…"></textarea><small id="happErr" class="bad"></small>',
+    '<button class="btn" data-close>' + t('cancel') + '</button><button class="btn primary" id="happGo">' + t('import') + '</button>');
+  $('happGo').onclick = function () {
+    var r = happToProfile($('happTxt').value);
+    if (!r) { $('happErr').textContent = t('happBad'); return; }
+    $('dlg').close(); addProfile(r.profile, r.skipped);
+  };
+  if (prefill) { $('happTxt').value = prefill; $('happGo').click(); }
+}
 function renderRouting() {
   if (!S.profiles.length) S.profiles.push({ id: uid(), name: t('defaultProfile'), mode: 'bypass', rules: '' });
   if (!S.profiles.some(function (p) { return p.id === RT.profSel; })) RT.profSel = S.profiles[0].id;
@@ -1309,7 +1369,14 @@ function renderRouting() {
   $('profList').onclick = function (e) { var r = e.target.closest('.prof'); if (r) { RT.profSel = r.dataset.id; render(); } };
   $('pMode').onclick = function (e) { var b = e.target.closest('button'); if (!b || b.dataset.v === p.mode) return; p.mode = b.dataset.v; persist(); render(); };
   $('pRules').oninput = function () { p.rules = this.value; persist(); };
-  $('addProf').onclick = function () { nameDlg(t('addProfile'), '', function (n) { var q = { id: uid(), name: n, mode: 'bypass', rules: '' }; S.profiles.push(q); RT.profSel = q.id; persist(); render(); }); };
+  $('addProf').onclick = function (e) {
+    e.stopPropagation(); var r = this.getBoundingClientRect();
+    menu(r.left, r.bottom + 4, [
+      [t('profEmpty'), function () { nameDlg(t('addProfile'), '', function (n) { addProfile({ name: n, mode: 'bypass', rules: '' }); }); }],
+      [t('profRu'), function () { addProfile({ name: t('profRu'), mode: 'bypass', rules: RU_DIRECT.join('\n') }); }],
+      [t('profHapp'), function () { happDlg(); }]
+    ]);
+  };
   $('profMenu').onclick = function (e) {
     e.stopPropagation(); var r = this.getBoundingClientRect(), items = [[t('rename'), function () { nameDlg(t('rename'), p.name, function (n) { p.name = n; persist(); render(); }); }], [t('delRules'), function () { confirmDlg(t('delRulesQ'), esc(p.name), t('del'), function () { p.rules = ''; persist(); render(); }); }, true]];
     if (S.profiles.length > 1) items.push([t('delProfile'), function () { confirmDlg(t('delProfileQ'), '<b>' + esc(p.name) + '</b>', t('del'), function () { S.profiles.splice(S.profiles.indexOf(p), 1); S.servers.forEach(function (s) { if (s.profile === p.id) s.profile = S.profiles[0].id; }); persist(); render(); }); }, true]);
