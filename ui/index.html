@@ -762,7 +762,7 @@ var L = {
   domain: 'Домен из сертификата сервера', username: 'Имя пользователя', password: 'Пароль', protocol: 'Протокол',
   profile: 'Профиль маршрутизации', dns: 'DNS-серверы, по одному в строке', dnsH: 'IP, tls://, https://, quic://, h3:// или sdns://. Если пусто — 46.243.231.30 (AdGuard DNS без фильтрации)',
   ipv6: 'Разрешить IPv6 через сервер', advanced: 'Дополнительно', sni: 'Свой SNI', fp: 'TLS-отпечаток', fpOwn: 'Свой отпечаток',
-  authType: 'Тип TLS-аутентификации', cr: 'Client Random, hex', crKey: 'Ключ Client Random, hex', pem: 'Самоподписанный сертификат, PEM', pemBtn: 'Выбрать PEM-файл', pemSet: 'Сертификат загружен',
+  authType: 'Тип TLS-аутентификации', cr: 'Client Random, hex', crKey: 'Ключ Client Random, hex', pem: 'Самоподписанный сертификат, PEM', pemBtn: 'Выбрать PEM-файл', pemSet: 'Сертификат загружен', pemDel: 'Убрать',
   fill: 'Заполните это поле', nameUsed: 'Это имя уже занято', badAddr: 'Формат x.x.x.x[:порт] или домен',
   delServerQ: 'Удалить сервер?', delServerD: 'Сервер <b>{0}</b> будет удалён', created: 'Сервер <b>{0}</b> создан', deleted: 'Сервер <b>{0}</b> удалён', savedT: 'Изменения сохранены', linkCopied: 'Ссылка на сервер скопирована', duplicated: 'Сервер продублирован',
   importT: 'Импорт сервера', importD: 'Вставьте конфиг, выгруженный с сервера (TOML), или ссылку tt://. Можно выбрать файл.', importFile: 'Выбрать файл', importBad: 'Не удалось разобрать конфиг', linkLater: 'Ссылки tt:// разбираются только в приложении для Windows',
@@ -808,7 +808,7 @@ var L = {
   domain: 'Domain name from server certificate', username: 'Username', password: 'Password', protocol: 'Protocol',
   profile: 'Routing profile', dns: 'DNS servers, one per line', dnsH: 'IP, tls://, https://, quic://, h3:// or sdns://. If empty, 46.243.231.30 (AdGuard DNS Non-filtering) is used',
   ipv6: 'Allow IPv6 connections via the server', advanced: 'Advanced', sni: 'Custom SNI', fp: 'TLS fingerprint', fpOwn: 'Own fingerprint',
-  authType: 'TLS authentication type', cr: 'Client Random, hex', crKey: 'Client Random auth key, hex', pem: 'Self-signed certificate, PEM', pemBtn: 'Choose PEM file', pemSet: 'Certificate loaded',
+  authType: 'TLS authentication type', cr: 'Client Random, hex', crKey: 'Client Random auth key, hex', pem: 'Self-signed certificate, PEM', pemBtn: 'Choose PEM file', pemSet: 'Certificate loaded', pemDel: 'Remove',
   fill: 'Please fill out this field', nameUsed: 'This name is already used', badAddr: 'Use x.x.x.x[:port] or a domain',
   delServerQ: 'Delete server?', delServerD: 'Server <b>{0}</b> will be deleted', created: 'Server <b>{0}</b> created', deleted: 'Server <b>{0}</b> deleted', savedT: 'Changes saved', linkCopied: 'Server link copied', duplicated: 'Server duplicated',
   importT: 'Import server', importD: 'Paste the config exported by the server (TOML) or a tt:// link. You can also choose a file.', importFile: 'Choose file', importBad: 'Could not parse the config', linkLater: 'tt:// links are decoded only in the Windows app',
@@ -1201,14 +1201,15 @@ function serverDlg(x) {
       '<div class="two"><label class="field"><span>' + t('fp') + '</span><select id="fFp">' + fps.map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === x.fp ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label>' +
       '<label class="field"><span>' + t('authType') + '</span><select id="fAuth"><option value="none">—</option><option value="cr"' + (x.auth === 'cr' ? ' selected' : '') + '>Client Random</option><option value="crkey"' + (x.auth === 'crkey' ? ' selected' : '') + '>Client Random auth key</option></select></label></div>' +
       '<div id="crBox"></div>' +
-      '<div class="field"><span>' + t('pem') + '</span><div class="links"><button class="btn sm" type="button" id="fPemBtn">' + t('pemBtn') + '</button><small class="muted" id="fPemSt" style="align-self:center">' + (x.pem ? t('pemSet') : '') + '</small></div></div>' +
+      '<div class="field"><span>' + t('pem') + '</span><div class="links"><button class="btn sm" type="button" id="fPemBtn">' + t('pemBtn') + '</button><button class="btn sm danger" type="button" id="fPemDel"' + (x.pem ? '' : ' hidden') + '>' + t('pemDel') + '</button><small class="muted" id="fPemSt" style="align-self:center">' + (x.pem ? t('pemSet') : '') + '</small></div></div>' +
     '</div></details>';
   openDlg(isNew ? t('addServer') : t('editServer'), body, '<button class="btn" data-close>' + t('cancel') + '</button><button class="btn primary" id="fSave">' + (isNew ? t('create') : t('save')) + '</button>');
   var proto = x.proto, pem = x.pem;
   $('fProto').onclick = function (e) { var b = e.target.closest('button'); if (!b) return; proto = b.dataset.v; [].forEach.call(this.children, function (c) { c.setAttribute('aria-pressed', String(c === b)); }); };
   function crBox() { var a = $('fAuth').value; $('crBox').innerHTML = a === 'cr' ? f('fCr', t('cr'), x.cr, 'text', 'abcdef, 0a0b0c/0f0f0f · max 64', 'mono') : a === 'crkey' ? f('fCrKey', t('crKey'), x.crKey, 'text', 'max 64', 'mono') : ''; }
   $('fAuth').onchange = crBox; crBox();
-  $('fPemBtn').onclick = function () { pickFile('.pem,.crt,.cer', function (txt) { pem = txt; $('fPemSt').textContent = t('pemSet'); }); };
+  $('fPemBtn').onclick = function () { pickFile('.pem,.crt,.cer', function (txt) { pem = txt; $('fPemSt').textContent = t('pemSet'); $('fPemDel').hidden = false; }); };
+  $('fPemDel').onclick = function () { pem = ''; $('fPemSt').textContent = ''; this.hidden = true; };
   $('fSave').onclick = function () {
     var ok = true;
     function need(id, test, msg) { var el = $(id), v = el.value.trim(), e = $(id + 'E'); var bad = !v ? t('fill') : (test && !test(v) ? msg : ''); if (bad) { ok = false; e.textContent = bad; e.className = 'bad'; } else if (e.className === 'bad') { e.textContent = id === 'fAddr' ? t('addressH') : ''; e.className = ''; } return v; }
