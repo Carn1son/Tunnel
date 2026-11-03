@@ -222,6 +222,9 @@ details.adv[open] > div { display: grid; gap: 11px; margin-top: 8px; }
 
 @media (max-width: 760px) {
   .app { grid-template-rows: auto minmax(0, 1fr); }
+  [data-tabbar=top] .rail { grid-row: 1 !important; border-top: 0 !important; border-bottom: 1px solid var(--line); }
+  [data-tabbar=top] .view { grid-row: 2 !important; }
+  [data-tabbar=top] .main { grid-template-rows: auto minmax(0, 1fr) !important; }
   .main { grid-template-columns: minmax(0, 1fr) !important; grid-template-rows: minmax(0, 1fr) auto; }
   .rail { grid-row: 2; flex-direction: row; justify-content: space-around; border-right: 0; border-top: 1px solid var(--line); padding: 4px; }
   .tab { flex-direction: column; gap: 2px; padding: 6px 4px; font-size: 10.5px; flex: 1; text-align: center; justify-content: center; }
@@ -324,10 +327,10 @@ details.adv[open] > div { display: grid; gap: 11px; margin-top: 8px; }
 
 <div class="app">
   <div class="top">
-    <span class="brand"><svg viewBox="0 0 100 100" id="brandLogo"><use href="#logo"/></svg>TUNNEL</span>
+    <span class="brand" id="brand"><svg viewBox="0 0 100 100" id="brandLogo"><use href="#logo"/></svg>TUNNEL</span>
     <span class="status" id="status"><i></i><span id="statusTxt"></span></span>
     <button class="btn sm" id="reBtn" type="button" hidden></button>
-    <span class="grow"></span>
+    <span class="grow" id="topGrow"></span>
     <button class="iconbtn" id="uiBtn" type="button"></button>
     <button class="iconbtn" id="setBtn" type="button" aria-pressed="false"><svg viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="3" rx="1.5" fill="currentColor"/><rect x="3" y="10.5" width="18" height="3" rx="1.5" fill="currentColor"/><rect x="3" y="16.5" width="18" height="3" rx="1.5" fill="currentColor"/></svg></button>
   </div>
@@ -888,7 +891,7 @@ if (window.TunnelAndroid && !(window.chrome && window.chrome.webview)) (function
 })();
 var HOST = window.chrome && window.chrome.webview ? window.chrome.webview : null;
 var HI = window.TUNNEL_HOST || {};
-var ANDROID = HI.platform === 'android';
+var ANDROID = HI.platform === 'android' || !!window.TN_PREVIEW_ANDROID;
 if (ANDROID) document.documentElement.classList.add('android');
 if (HI.label) VERSION = HI.label;
 if (HI.day) RELEASED = HI.day;
@@ -947,6 +950,29 @@ var IC = {
   moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>'
 };
 var TABS = ['servers', 'routing', 'split', 'admin', 'log'];
+
+/* ---------- layout: tab order, names, icons, header, settings sections — set with the layout editor (docs/layout-editor.html) */
+var TN_LAYOUT_DEFAULT = {};
+var LAYOUT = window.TN_LAYOUT || TN_LAYOUT_DEFAULT;
+function layoutOn() { var Ly = LAYOUT || {}; return window.TN_LAYOUT_PREVIEW || !Ly.scope || Ly.scope === 'all' || (Ly.scope === 'android' && ANDROID) || (Ly.scope === 'pc' && !ANDROID); }
+function applyLayout() {
+  var Ly = LAYOUT || {}; if (!layoutOn()) return;
+  if (Array.isArray(Ly.tabs)) { var all = ['servers', 'routing', 'split', 'admin', 'log'], tb = Ly.tabs.filter(function (k) { return all.indexOf(k) >= 0; }); if (tb.indexOf('servers') < 0) tb.unshift('servers'); TABS = tb; }
+  if (Ly.strings) Object.keys(Ly.strings).forEach(function (lg) { if (L[lg]) Object.keys(Ly.strings[lg]).forEach(function (k) { L[lg][k] = Ly.strings[lg][k]; }); });
+  if (Ly.icons) Object.keys(Ly.icons).forEach(function (k) { if (IC[Ly.icons[k]]) IC[k] = IC[Ly.icons[k]]; });
+  if (Ly.tabbar) document.documentElement.dataset.tabbar = Ly.tabbar;
+  if (Array.isArray(Ly.header)) {
+    var top = document.querySelector('.top'), ids = ['brand', 'status', 'reBtn', 'topGrow', 'uiBtn', 'setBtn'];
+    Ly.header.forEach(function (h) { var el = $(h.id); if (el && ids.indexOf(h.id) >= 0) { top.appendChild(el); if (h.hidden) el.style.display = 'none'; } });
+  }
+}
+function layoutSettings() {
+  var Ly = LAYOUT || {}; if (!layoutOn() || !Array.isArray(Ly.settings)) return;
+  var body = document.querySelector('#setPane .setbody'); if (!body) return;
+  var foot = body.querySelector('.setfoot');
+  Ly.settings.forEach(function (x) { var f = body.querySelector('fieldset[data-sec="' + x.id + '"]'); if (!f) return; body.insertBefore(f, foot); if (x.hidden) f.style.display = 'none'; });
+  if (Ly.settingsFoot === false && foot) foot.style.display = 'none';
+}
 
 /* ---------- shell ---------- */
 function renderShell() {
@@ -1831,19 +1857,19 @@ function renderSettings() {
   var st = S.set;
   function chk(id, label, on, desc) { return '<label class="srow"><span>' + label + (desc ? '<small>' + desc + '</small>' : '') + '</span>' + sw(id, on) + '</label>'; }
   $('setPane').innerHTML = '<div class="sethead"><b>' + t('settings') + '</b><button class="btn" id="setClose" title="Esc">✕</button></div><div class="setbody">' +
-    '<fieldset><legend>' + t('general') + '</legend>' +
+    '<fieldset data-sec="general"><legend>' + t('general') + '</legend>' +
       '<div class="srow"><span>' + t('language') + '</span><div class="seg" id="sLang"><button type="button" data-v="ru" aria-pressed="' + (S.lang === 'ru') + '">RU</button><button type="button" data-v="en" aria-pressed="' + (S.lang === 'en') + '">EN</button></div></div>' +
       '</fieldset>' +
-    '<fieldset><legend>' + t('launch') + '</legend>' +
+    '<fieldset data-sec="launch"><legend>' + t('launch') + '</legend>' +
       (ANDROID ? '<div class="srow"><span>' + t('alwaysOn') + '<small>' + t('alwaysOnD') + '</small></span><button class="btn sm" id="sAlways" type="button">' + t('openSettings') + '</button></div>'
         : chk('sAuto', t('autostart'), st.autostart) + chk('sOpen', t('openWin'), st.openWin, t('openWinD')) + chk('sTray', t('minTray'), st.minTray)) +
       chk('sConn', t('autoconnect'), st.autoconnect, S.servers.length ? t('autoconnectD') : t('autoconnectNo')) + '</fieldset>' +
-    '<fieldset><legend>' + t('excluded') + '</legend><small class="muted">' + t('excludedD') + '</small><textarea id="sExcl" class="lines4" spellcheck="false">' + esc(st.excluded) + '</textarea><small id="sExclE" class="bad"></small></fieldset>' +
-    '<fieldset><legend>' + t('logging') + '</legend>' +
+    '<fieldset data-sec="excluded"><legend>' + t('excluded') + '</legend><small class="muted">' + t('excludedD') + '</small><textarea id="sExcl" class="lines4" spellcheck="false">' + esc(st.excluded) + '</textarea><small id="sExclE" class="bad"></small></fieldset>' +
+    '<fieldset data-sec="logging"><legend>' + t('logging') + '</legend>' +
       '<div class="srow"><span>' + t('level') + '<small>' + (st.level === 'debug' ? t('lvDebugD') : '') + '</small></span><div class="seg" id="sLevel"><button type="button" data-v="basic" aria-pressed="' + (st.level === 'basic') + '">' + t('lvBasic') + '</button><button type="button" data-v="debug" aria-pressed="' + (st.level === 'debug') + '">' + t('lvDebug') + '</button></div></div>' +
       '<div class="links"><button class="btn sm" id="sExp">' + t('exportLogs') + '</button><button class="btn sm danger" id="sDelLogs">' + t('delLogs') + '</button></div></fieldset>' +
-    '<fieldset><legend>' + t('updates') + '</legend>' + chk('sUpd', t('autoUpd'), st.autoUpd) + '<div id="updBox">' + updHtml() + '</div></fieldset>' +
-    '<fieldset><legend>' + t('about') + '</legend><div class="about"><svg viewBox="0 0 100 100"><use href="#logo"/></svg><div><b style="font-family:var(--f-display);font-size:17px">Tunnel ' + VERSION + '</b><span class="muted mono" style="font-size:12px;margin-left:12px">' + RELEASED + '</span><div class="muted">' + t(ANDROID ? 'aboutDA' : 'aboutD') + '</div></div></div>' +
+    '<fieldset data-sec="updates"><legend>' + t('updates') + '</legend>' + chk('sUpd', t('autoUpd'), st.autoUpd) + '<div id="updBox">' + updHtml() + '</div></fieldset>' +
+    '<fieldset data-sec="about"><legend>' + t('about') + '</legend><div class="about"><svg viewBox="0 0 100 100"><use href="#logo"/></svg><div><b style="font-family:var(--f-display);font-size:17px">Tunnel ' + VERSION + '</b><span class="muted mono" style="font-size:12px;margin-left:12px">' + RELEASED + '</span><div class="muted">' + t(ANDROID ? 'aboutDA' : 'aboutD') + '</div></div></div>' +
       '<small class="muted credits">' + t('credits').replace('{0}', '<a href="https://github.com/TrustTunnel/TrustTunnel" target="_blank" rel="noopener">TrustTunnel</a>') + ' · <span class="nw">Apache 2.0</span></small></fieldset>' +
     '<div class="setfoot"><a class="lk gh" href="https://github.com/Carn1son/Tunnel/releases/latest" target="_blank" rel="noopener"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg><span><b>GitHub</b><small>' + t('ghSub') + '</small></span><i aria-hidden="true">↗</i></a></div>' +
     '</div>';
@@ -1861,6 +1887,7 @@ function renderSettings() {
   $('sExp').onclick = function () { (HOST ? ask('logs-export') : Promise.resolve()).then(function () { toast(t('logsExported')); }); };
   $('sDelLogs').onclick = function () { confirmDlg(t('delLogs') + '?', '', t('del'), function () { (HOST ? ask('logs-clear') : Promise.resolve()).then(function () { toast(t('logsDeleted')); }); }); };
   $('updBox').onclick = function (e) { var b = e.target.closest('[data-upd]'); if (!b) return; if (b.dataset.upd === 'check') checkUpd(); else if (b.dataset.upd === 'go') getUpd(); };
+  layoutSettings();
 }
 
 /* ---------- updates ---------- */
@@ -1906,6 +1933,7 @@ window.tnBack = function () {
 };
 
 /* ---------- start ---------- */
+applyLayout();
 $('reBtn').onclick = reconnect;
 if (HOST) {
   ask('ready').then(function (r) {

@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tunnel — редактор интерфейса</title>
+<style>
+  :root { --bg:#0a0a0a; --panel:#121212; --panel2:#181818; --line:#262626; --fg:#ececec; --muted:#8b8f96; --accent:#3b82f6; --bad:#ef4444; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { display: grid; grid-template-columns: minmax(0, 1fr) 430px; height: 100%; }
+  .side { overflow: auto; padding: 18px 20px 40px; border-right: 1px solid var(--line); }
+  .stage { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 16px; background: #050505; }
+  .phone { width: 393px; height: 780px; border: 10px solid #1d1d1d; border-radius: 36px; overflow: hidden; background: #000; box-shadow: 0 30px 80px -30px #000; }
+  .phone iframe { width: 100%; height: 100%; border: 0; background: var(--bg); }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .lead { color: var(--muted); margin: 0 0 16px; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+  section > b { display: block; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+  .row { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel2); margin-bottom: 6px; flex-wrap: wrap; }
+  .row .nm { min-width: 110px; font-weight: 600; }
+  .row.off { opacity: .45; }
+  input[type=text], select, textarea { font: inherit; color: var(--fg); background: #0d0d0d; border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+  input[type=text] { flex: 1 1 140px; min-width: 0; }
+  textarea { width: 100%; min-height: 150px; font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+  button { font: inherit; color: var(--fg); background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+  button:hover { border-color: #3a3a3a; }
+  button.pri { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.ic { width: 30px; padding: 5px 0; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; background: transparent; }
+  .seg button[aria-pressed=true] { background: var(--accent); color: #fff; }
+  label.ck { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
+  .hint { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
+  .strs { max-height: 380px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
+  .str { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 8px; padding: 6px 8px; border-bottom: 1px solid #1c1c1c; align-items: center; }
+  .str code { font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
+  .str.ch input { border-color: var(--accent); }
+  .bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+  .ok { color: #22c55e; font-size: 13px; }
+  @media (max-width: 900px) { .wrap { grid-template-columns: 1fr; height: auto; } .side { border-right: 0; } .stage { padding: 20px 0 40px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="side">
+    <h1>Редактор интерфейса Tunnel</h1>
+    <p class="lead">Меняй меню, порядок, названия и тексты — справа сразу видно, как это выглядит на телефоне (в нём можно нажимать). Когда закончишь, нажми «Скопировать» внизу и пришли текст в чат.</p>
+
+    <section><b>Где применять</b>
+      <div class="seg" id="scope"><button data-v="android">Только телефон</button><button data-v="all">Телефон и ПК</button></div>
+    </section>
+
+    <section><b>Вкладки</b>
+      <div id="tabs"></div>
+      <p class="hint">Стрелками меняется порядок. «Полное» — подпись в боковом меню на ПК и заголовок страницы, «Короткое» — подпись внизу на телефоне. «Серверы» скрыть нельзя.</p>
+      <div class="bar"><span style="color:var(--muted)">Панель вкладок на телефоне:</span><div class="seg" id="tabbar"><button data-v="bottom">Снизу</button><button data-v="top">Сверху</button></div></div>
+    </section>
+
+    <section><b>Верхняя панель</b>
+      <div id="header"></div>
+      <p class="hint">«Растяжка» — пустое место: всё, что после неё, прижимается к правому краю.</p>
+    </section>
+
+    <section><b>Настройки</b>
+      <div id="settings"></div>
+      <label class="ck" style="margin-top:6px"><input type="checkbox" id="foot"> Карточка GitHub внизу настроек</label>
+    </section>
+
+    <section><b>Все тексты</b>
+      <div class="bar" style="margin:0 0 8px"><input type="text" id="q" placeholder="Поиск по тексту или ключу…"><div class="seg" id="lang"><button data-v="ru">RU</button><button data-v="en">EN</button></div><label class="ck"><input type="checkbox" id="onlyCh"> только изменённые</label></div>
+      <div class="strs" id="strs"></div>
+      <p class="hint">Фигурные {0}, {1} — места, куда приложение подставляет значения; их лучше оставить. Изменённые строки подсвечены синим.</p>
+    </section>
+
+    <section><b>Готово</b>
+      <textarea id="out" readonly></textarea>
+      <div class="bar"><button class="pri" id="copy">Скопировать</button><button id="dl">Скачать .json</button><button id="load">Вставить сохранённое…</button><button id="reset">Сбросить всё</button><span class="ok" id="msg"></span></div>
+    </section>
+  </div>
+  <div class="stage">
+    <div class="phone"><iframe id="pv" title="Предпросмотр"></iframe></div>
+    <div class="bar"><button id="pvReload">Обновить предпросмотр</button><span style="color:var(--muted);font-size:12px">Тема переключается кнопкой внутри телефона</span></div>
+  </div>
+</div>
+
+<script>
+var APP = __APP_HTML__;
+var STR = __APP_STRINGS__;
+var TAB_KEYS = ['servers', 'routing', 'split', 'admin', 'log'];
+var ICONS = { servers: 'Серверы', routing: 'Маршруты', split: 'Развилка', admin: 'Терминал', log: 'Список' };
+var HEAD = [['brand', 'Логотип'], ['status', 'Статус подключения'], ['reBtn', 'Кнопка «Переподключить»'], ['topGrow', 'Растяжка'], ['uiBtn', 'Кнопка темы'], ['setBtn', 'Кнопка настроек']];
+var SETS = [['general', 'Общие'], ['launch', 'Запуск'], ['excluded', 'Исключённые маршруты'], ['logging', 'Журнал приложения'], ['updates', 'Обновления'], ['about', 'О приложении']];
+
+function blank() {
+  return { scope: 'android', tabbar: 'bottom', settingsFoot: true,
+    tabs: TAB_KEYS.map(function (k) { return { id: k, hidden: false, icon: k }; }),
+    header: HEAD.map(function (h) { return { id: h[0], hidden: false }; }),
+    settings: SETS.map(function (h) { return { id: h[0], hidden: false }; }),
+    strings: { ru: {}, en: {} } };
+}
+var st = blank(), lang = 'ru';
+try { var sv = JSON.parse(localStorage.getItem('tn-layout-editor') || 'null'); if (sv && sv.tabs) st = sv; } catch (e) {}
+
+function $(id) { return document.getElementById(id); }
+function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+function val(lg, k) { return st.strings[lg] && st.strings[lg][k] != null ? st.strings[lg][k] : STR[lg][k]; }
+function setStr(lg, k, v) { if (v === STR[lg][k]) delete st.strings[lg][k]; else st.strings[lg][k] = v; }
+function move(arr, i, d) { var j = i + d; if (j < 0 || j >= arr.length) return; var x = arr[i]; arr[i] = arr[j]; arr[j] = x; }
+function seg(id, cur, fn) { var el = $(id); el.querySelectorAll('button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.v === cur)); }); el.onclick = function (e) { var b = e.target.closest('button'); if (b) fn(b.dataset.v); }; }
+
+function renderTabs() {
+  $('tabs').innerHTML = st.tabs.map(function (x, i) {
+    var lock = x.id === 'servers';
+    return '<div class="row' + (x.hidden ? ' off' : '') + '"><button class="ic" data-up="' + i + '">↑</button><button class="ic" data-dn="' + i + '">↓</button>' +
+      '<span class="nm">' + esc(STR.ru[x.id]) + '</span>' +
+      '<input type="text" data-k="' + x.id + '" value="' + esc(val(lang, x.id)) + '" title="Полное">' +
+      '<input type="text" data-k="' + x.id + 'S" value="' + esc(val(lang, x.id + 'S')) + '" title="Короткое">' +
+      '<select data-icon="' + i + '">' + TAB_KEYS.map(function (k) { return '<option value="' + k + '"' + (x.icon === k ? ' selected' : '') + '>' + ICONS[k] + '</option>'; }).join('') + '</select>' +
+      (lock ? '' : '<label class="ck"><input type="checkbox" data-vis="' + i + '"' + (x.hidden ? '' : ' checked') + '> видна</label>') + '</div>';
+  }).join('');
+}
+function renderList(id, arr, names) {
+  $(id).innerHTML = arr.map(function (x, i) {
+    var nm = (names.filter(function (n) { return n[0] === x.id; })[0] || [x.id, x.id])[1];
+    return '<div class="row' + (x.hidden ? ' off' : '') + '"><button class="ic" data-up="' + i + '">↑</button><button class="ic" data-dn="' + i + '">↓</button><span class="nm" style="flex:1">' + nm + '</span>' +
+      '<label class="ck"><input type="checkbox" data-vis="' + i + '"' + (x.hidden ? '' : ' checked') + '> видно</label></div>';
+  }).join('');
+}
+function renderStrs() {
+  var q = $('q').value.trim().toLowerCase(), only = $('onlyCh').checked;
+  var keys = Object.keys(STR.ru).filter(function (k) {
+    var v = val(lang, k), ch = st.strings[lang] && st.strings[lang][k] != null;
+    if (only && !ch) return false;
+    return !q || k.toLowerCase().indexOf(q) >= 0 || String(v).toLowerCase().indexOf(q) >= 0 || String(STR[lang][k]).toLowerCase().indexOf(q) >= 0;
+  }).slice(0, 400);
+  $('strs').innerHTML = keys.map(function (k) {
+    var ch = st.strings[lang] && st.strings[lang][k] != null;
+    return '<div class="str' + (ch ? ' ch' : '') + '"><code>' + esc(k) + '</code><input type="text" data-k="' + esc(k) + '" value="' + esc(val(lang, k)) + '" title="' + esc(STR[lang][k]) + '"></div>';
+  }).join('') || '<div class="str"><span style="color:var(--muted)">Ничего не найдено</span></div>';
+}
+
+function output() {
+  var o = { scope: st.scope, tabbar: st.tabbar };
+  o.tabs = st.tabs.filter(function (x) { return !x.hidden; }).map(function (x) { return x.id; });
+  var icons = {}; st.tabs.forEach(function (x) { if (x.icon !== x.id) icons[x.id] = x.icon; }); if (Object.keys(icons).length) o.icons = icons;
+  o.header = st.header.map(function (x) { return x.hidden ? { id: x.id, hidden: true } : { id: x.id }; });
+  o.settings = st.settings.map(function (x) { return x.hidden ? { id: x.id, hidden: true } : { id: x.id }; });
+  if (!st.settingsFoot) o.settingsFoot = false;
+  var strs = {}; ['ru', 'en'].forEach(function (lg) { if (Object.keys(st.strings[lg] || {}).length) strs[lg] = st.strings[lg]; }); if (Object.keys(strs).length) o.strings = strs;
+  return o;
+}
+
+var pvTimer = null;
+function preview() {
+  clearTimeout(pvTimer);
+  pvTimer = setTimeout(function () {
+    var inj = '<script>window.TN_LAYOUT=' + JSON.stringify(output()).replace(/</g, '\\u003c') + ';window.TN_LAYOUT_PREVIEW=true;window.TN_PREVIEW_ANDROID=true;<\/script>';
+    $('pv').srcdoc = APP.replace('<head>', '<head>' + inj);
+  }, 350);
+}
+function changed() {
+  try { localStorage.setItem('tn-layout-editor', JSON.stringify(st)); } catch (e) {}
+  $('out').value = JSON.stringify(output(), null, 2);
+  preview();
+}
+function renderAll() {
+  seg('scope', st.scope, function (v) { st.scope = v; renderAll(); changed(); });
+  seg('tabbar', st.tabbar, function (v) { st.tabbar = v; renderAll(); changed(); });
+  seg('lang', lang, function (v) { lang = v; renderAll(); });
+  renderTabs(); renderList('header', st.header, HEAD); renderList('settings', st.settings, SETS);
+  $('foot').checked = st.settingsFoot !== false;
+  renderStrs();
+}
+
+function listHandlers(id, arr) {
+  $(id).addEventListener('click', function (e) {
+    var b = e.target.closest('[data-up],[data-dn]'); if (!b) return;
+    if (b.dataset.up != null) move(arr(), +b.dataset.up, -1); else move(arr(), +b.dataset.dn, 1);
+    renderAll(); changed();
+  });
+  $(id).addEventListener('change', function (e) {
+    var c = e.target;
+    if (c.dataset.vis != null) { arr()[+c.dataset.vis].hidden = !c.checked; renderAll(); changed(); }
+    if (c.dataset.icon != null) { arr()[+c.dataset.icon].icon = c.value; changed(); }
+  });
+}
+listHandlers('tabs', function () { return st.tabs; });
+listHandlers('header', function () { return st.header; });
+listHandlers('settings', function () { return st.settings; });
+function strInput(e) { var c = e.target; if (c.dataset.k == null) return; setStr(lang, c.dataset.k, c.value); c.closest('.row,.str') && c.closest('.str') && c.closest('.str').classList.toggle('ch', st.strings[lang][c.dataset.k] != null); changed(); }
+$('tabs').addEventListener('input', strInput);
+$('strs').addEventListener('input', strInput);
+$('q').oninput = renderStrs; $('onlyCh').onchange = renderStrs;
+$('foot').onchange = function () { st.settingsFoot = this.checked; changed(); };
+$('pvReload').onclick = preview;
+function flash(t) { $('msg').textContent = t; setTimeout(function () { $('msg').textContent = ''; }, 2000); }
+$('copy').onclick = function () {
+  var t = $('out').value;
+  (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { flash('Скопировано'); }, function () { $('out').select(); document.execCommand('copy'); flash('Скопировано'); });
+};
+$('dl').onclick = function () { var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([$('out').value], { type: 'application/json' })); a.download = 'tunnel-layout.json'; a.click(); };
+$('reset').onclick = function () { if (confirm('Сбросить все изменения?')) { st = blank(); renderAll(); changed(); } };
+$('load').onclick = function () {
+  var t = prompt('Вставь сохранённый ранее текст из поля «Готово»:'); if (!t) return;
+  try {
+    var o = JSON.parse(t), b = blank();
+    b.scope = o.scope || b.scope; b.tabbar = o.tabbar || b.tabbar; b.settingsFoot = o.settingsFoot !== false;
+    if (o.tabs) { var vis = o.tabs; b.tabs = vis.map(function (k) { return { id: k, hidden: false, icon: (o.icons && o.icons[k]) || k }; }).concat(TAB_KEYS.filter(function (k) { return vis.indexOf(k) < 0; }).map(function (k) { return { id: k, hidden: true, icon: (o.icons && o.icons[k]) || k }; })); }
+    if (o.header) b.header = o.header.map(function (x) { return { id: x.id, hidden: !!x.hidden }; });
+    if (o.settings) b.settings = o.settings.map(function (x) { return { id: x.id, hidden: !!x.hidden }; });
+    b.strings = { ru: (o.strings && o.strings.ru) || {}, en: (o.strings && o.strings.en) || {} };
+    st = b; renderAll(); changed(); flash('Загружено');
+  } catch (e) { alert('Не получилось прочитать этот текст'); }
+};
+renderAll(); changed();
+</script>
+</body>
+</html>
