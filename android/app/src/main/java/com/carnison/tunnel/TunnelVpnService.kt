@@ -96,7 +96,6 @@ class TunnelVpnService : android.net.VpnService() {
         val b = Builder().setSession("Tunnel").setMtu(1350)
             .addAddress("172.20.2.13", 32)
             .addAddress("fdfd:29::2", 64)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) b.setMetered(false)
 
         // split tunnelling by application is done by Android itself
         val apps = extra.optJSONArray("apps") ?: JSONArray()
@@ -139,7 +138,6 @@ class TunnelVpnService : android.net.VpnService() {
                     lostCheck?.let { main.removeCallbacks(it) }; lostCheck = null
                     val was = network
                     network = n
-                    runCatching { setUnderlyingNetworks(arrayOf(n)) }
                     if (was != null && was != n) worker.execute { if (!stopping) client?.notifyNetworkChange(true) }
                 }
             }
