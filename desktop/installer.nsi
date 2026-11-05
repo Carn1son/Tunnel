@@ -97,6 +97,9 @@ Section "Tunnel"
   CreateShortcut "$SMPROGRAMS\${APPNAME}.lnk" "$INSTDIR\Tunnel.exe"
   IfSilent +2
     CreateShortcut "$DESKTOP\${APPNAME}.lnk" "$INSTDIR\Tunnel.exe"
+    ; Windows keeps old shortcut icons in its cache: refresh it so the new icon shows at once
+    nsExec::Exec '"$SYSDIR\ie4uinit.exe" -show'
+    System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
 
   ; tt:// links open the import in Tunnel
   WriteRegStr HKLM "Software\Classes\tt" "" "URL:TrustTunnel"
