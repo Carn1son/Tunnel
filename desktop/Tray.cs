@@ -79,26 +79,38 @@ namespace Tunnel
             }
         }
 
-        /// The chip of ic_tile.xml (100×100): pins, a body with the tunnel cut out, and the door inside it.
+        /// The Tunnel chip (100×100): five pins on each side, the tunnel cut out, the passage inside and a T in the corner.
+        /// Off: the T is cut out of the chip; on: the passage and the T are blue.
         static void Chip(Graphics g, Color ink, int alpha, Color? doorColor = null)
         {
             var c = Color.FromArgb(alpha, ink);
-            using (var pen = new Pen(c, 7f) { StartCap = LineCap.Round, EndCap = LineCap.Round })
-            {
-                foreach (var x in new[] { 32f, 50f, 68f }) g.DrawLine(pen, x, 6, x, 16);
-                foreach (var y in new[] { 32f, 50f, 68f }) { g.DrawLine(pen, 6, y, 16, y); g.DrawLine(pen, 84, y, 94, y); }
-                g.DrawLine(pen, 26, 84, 26, 94); g.DrawLine(pen, 74, 84, 74, 94);
-            }
-            using (var body = Rounded(18, 18, 64, 64, 10))
-            using (var cut = Arch(34, 82, 16))
-            using (var door = Arch(42, 82, 8, 57))
             using (var b = new SolidBrush(c))
-            using (var d = new SolidBrush(doorColor ?? c))
             {
-                var r = new Region(body); r.Exclude(cut);
-                g.FillRegion(b, r); r.Dispose();
-                g.FillPath(d, door);
+                foreach (var p in new[] { 29f, 39.5f, 50f, 60.5f, 71f })
+                {
+                    g.FillRectangle(b, p - 2.2f, 5, 4.4f, 10); g.FillRectangle(b, p - 2.2f, 85, 4.4f, 10);
+                    g.FillRectangle(b, 5, p - 2.2f, 10, 4.4f); g.FillRectangle(b, 85, p - 2.2f, 10, 4.4f);
+                }
+                using (var body = Rounded(18, 18, 64, 64, 10))
+                using (var cut = Arch(34, 82, 16))
+                using (var door = Arch(42, 82, 8, 57))
+                using (var tee = Tee())
+                using (var d = new SolidBrush(doorColor ?? c))
+                {
+                    var r = new Region(body); r.Exclude(cut); if (doorColor == null) r.Exclude(tee);
+                    g.FillRegion(b, r); r.Dispose();
+                    g.FillPath(d, door);
+                    if (doorColor != null) g.FillPath(d, tee);
+                }
             }
+        }
+
+        static GraphicsPath Tee()
+        {
+            var p = new GraphicsPath();
+            p.AddPolygon(new[] { new PointF(23.5f, 23.5f), new PointF(35.5f, 23.5f), new PointF(35.5f, 27.2f), new PointF(31.35f, 27.2f),
+                new PointF(31.35f, 38.2f), new PointF(27.65f, 38.2f), new PointF(27.65f, 27.2f), new PointF(23.5f, 27.2f) });
+            return p;
         }
 
         static GraphicsPath Rounded(float x, float y, float w, float h, float r)
